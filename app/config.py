@@ -74,6 +74,11 @@ VIP_PLANS = [
     (7, 50),
     (30, 150),
 ]
+# (days, coins)
+VIP_COIN_PLANS = [
+    (7, 200),
+    (30, 700),
+]
 
 VIP_FALLBACK_AI_SEC = 10
 NONVIP_FALLBACK_AI_SEC = 25

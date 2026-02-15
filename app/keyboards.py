@@ -1,7 +1,7 @@
 # app/keyboards.py
 
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from app.config import SKINS, VIP_PLANS
+from app.config import SKINS, VIP_PLANS, VIP_COIN_PLANS
 from app.i18n import t
 
 
@@ -250,7 +250,18 @@ def vip_kb(lang: str) -> InlineKeyboardMarkup:
             continue
         if days <= 0 or stars <= 0:
             continue
-        rows.append([InlineKeyboardButton(text=f"⭐ {days} days — {stars}", callback_data=f"sm:vip:buy:{days}:{stars}")])
+        rows.append([InlineKeyboardButton(text=f"Stars {days}d - {stars}", callback_data=f"sm:vip:buy:{days}:{stars}")])
+
+    for it in VIP_COIN_PLANS:
+        if isinstance(it, (list, tuple)) and len(it) >= 2:
+            days = int(it[0]); coins = int(it[1])
+        elif isinstance(it, dict):
+            days = int(it.get("days", 0)); coins = int(it.get("coins", 0))
+        else:
+            continue
+        if days <= 0 or coins <= 0:
+            continue
+        rows.append([InlineKeyboardButton(text=f"Coins {days}d - {coins}", callback_data=f"sm:vip:buycoins:{days}:{coins}")])
 
     rows.append([InlineKeyboardButton(text=t(lang, "back"), callback_data="sm:menu:home")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
@@ -290,3 +301,4 @@ def board_kb_pvp(match_id: str, board: str, lang: str, highlight=set(), extra_ro
 
     rows.append([InlineKeyboardButton(text=t(lang, "back"), callback_data="sm:menu:home")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
+

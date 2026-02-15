@@ -50,6 +50,7 @@ from app.config import (
     DEFAULT_SKIN,
     SKINS,
     VIP_PLANS,
+    VIP_COIN_PLANS,
     VIP_FALLBACK_AI_SEC,
     NONVIP_FALLBACK_AI_SEC,
 )
@@ -1398,6 +1399,43 @@ async def vip_buy(cb: CallbackQuery):
         prices=prices,
     )
     await cb.answer()
+
+
+@router.callback_query(F.data.startswith("sm:vip:buycoins:"))
+async def vip_buy_coins(cb: CallbackQuery):
+    if not click_ok(cb.from_user.id):
+        await cb.answer(); return
+    init_db()
+    lang = ensure_user(cb)
+
+    try:
+        _, _, _, days_s, coins_s = cb.data.split(":")
+        days = int(days_s)
+        coins = int(coins_s)
+    except Exception:
+        await cb.answer("Invalid VIP plan", show_alert=True)
+        return
+
+    allowed_plans = {(int(d), int(c)) for d, c in VIP_COIN_PLANS if int(d) > 0 and int(c) > 0}
+    if (days, coins) not in allowed_plans:
+        await cb.answer("Unknown VIP plan", show_alert=True)
+        return
+
+    if not try_spend_coins(cb.from_user.id, coins):
+        await cb.answer("Недостатньо монет 🪙", show_alert=True)
+        return
+
+    until = add_vip_days(cb.from_user.id, days)
+    date = datetime.fromtimestamp(until, tz=timezone.utc).strftime("%Y-%m-%d")
+    bal = get_coins(cb.from_user.id)
+    text = t(lang, "vip_status_on").format(date=date)
+
+    await safe_edit_text(
+        cb.message,
+        f"{t(lang,'vip_title')}\n\n{text}\n\n💰 Баланс: <b>{bal}</b> 🪙",
+        reply_markup=vip_kb(lang),
+    )
+    await cb.answer("VIP активовано ✅", show_alert=True)
 
 # ---- AI mode ----
 @router.callback_query(F.data == "sm:menu:play_ai")
