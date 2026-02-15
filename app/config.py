@@ -137,7 +137,7 @@ WEBHOOK_BASE_URL = _env("WEBHOOK_BASE_URL", _WEBHOOK_DEFAULT)
 
 WEBHOOK_HOST = _env("WEBHOOK_HOST", "0.0.0.0")
 # Railway and similar platforms expose dynamic HTTP port in PORT.
-WEBHOOK_PORT = int(_env("WEBHOOK_PORT", _env("PORT", "8080")))
+WEBHOOK_PORT = int(_env("PORT", _env("WEBHOOK_PORT", "8080")))
 
 PAY_CURRENCY = "UAH"
 
