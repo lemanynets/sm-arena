@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+
+venv/
+__pycache__/
+*.pyc
+
+logs/
+*.log
+
+sm_arena.db
+app/sm_arena.db
+
+.DS_Store
+Thumbs.db

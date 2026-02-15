@@ -1,0 +1,36 @@
+{
+  "USER_RATING": {},
+  "TOTAL_WINS": {},
+  "TOTAL_GAMES": {},
+  "USER_WINS": {},
+  "USER_GAMES": {},
+  "WEEK_START_TS": 1770655978.588944,
+  "PAIR_STATS": {},
+  "BANNED_USERS": [],
+  "SEASON_START_TS": 1770655978.588944,
+  "SEASON_ID": 1,
+  "PRIZE_POOL": 100,
+  "USER_SETTINGS": {
+    "8148164304": {
+      "skin": "3d",
+      "vip_until": 0.0
+    },
+    "6093304867": {
+      "skin": "default",
+      "vip_until": 0.0
+    },
+    "7057628729": {
+      "skin": "3d",
+      "vip_until": 0.0
+    },
+    "213481399": {
+      "skin": "3d",
+      "vip_until": 0.0
+    }
+  },
+  "SPONSOR": {
+    "text": "",
+    "url": ""
+  },
+  "PROMO_CODES": {}
+}
