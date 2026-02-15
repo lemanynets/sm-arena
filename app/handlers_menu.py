@@ -400,7 +400,12 @@ async def menu_home(cb: CallbackQuery):
     reset_week_if_needed(week_len_days=5, top_n=TOP_N)
 
     g = get_active_game(cb.from_user.id)
-    g_title = t(lang, "game_checkers") if g == "checkers" else t(lang, "game_xo")
+    if g == "checkers":
+        g_title = t(lang, "game_checkers")
+    elif g == "chess":
+        g_title = t(lang, "game_chess")
+    else:
+        g_title = t(lang, "game_xo")
     await safe_edit_text(
         cb.message,
         f"{t(lang,'brand_title')}\n{g_title}\n\n{t(lang,'menu_quick_hint')}",
@@ -480,6 +485,25 @@ async def game_choose_checkers(cb: CallbackQuery):
     await cb.answer()
 
 
+@router.callback_query(F.data == "sm:game:chess")
+async def game_choose_chess(cb: CallbackQuery):
+    if not click_ok(cb.from_user.id):
+        await cb.answer()
+        return
+    init_db()
+    lang = ensure_user(cb)
+    set_active_game(cb.from_user.id, "chess")
+
+    reset_week_if_needed(week_len_days=5, top_n=TOP_N)
+
+    await safe_edit_text(
+        cb.message,
+        f"{t(lang,'brand_title')}\n{t(lang,'game_chess')}\n\n{t(lang,'menu_quick_hint')}",
+        reply_markup=menu_kb(lang, cb.from_user.id),
+    )
+    await cb.answer()
+
+
 @router.callback_query(F.data == "sm:menu:settings")
 async def menu_settings(cb: CallbackQuery):
     if not click_ok(cb.from_user.id):
@@ -509,7 +533,12 @@ def _market_nav_kb(lang: str) -> InlineKeyboardMarkup:
 
 
 def _game_title(lang: str, g: str) -> str:
-    return t(lang, "game_checkers") if (g or "xo") == "checkers" else t(lang, "game_xo")
+    game = (g or "xo").lower()
+    if game == "checkers":
+        return t(lang, "game_checkers")
+    if game == "chess":
+        return t(lang, "game_chess")
+    return t(lang, "game_xo")
 
 
 def _skin_allowed(user_id: int, game: str, skin: str) -> bool:
@@ -807,7 +836,7 @@ async def menu_quests(cb: CallbackQuery):
 
     g = get_active_game(cb.from_user.id)
     u = get_user(cb.from_user.id) or {}
-    suf = "" if g == "xo" else "_ck"
+    suf = "_ck" if g == "checkers" else ""
     week_games = int(u.get("week_games" + suf, 0) or 0)
     week_wins = int(u.get("week_wins" + suf, 0) or 0)
     rating = int(u.get("rating" + suf, 1000) or 1000)
@@ -862,7 +891,7 @@ async def quest_claim(cb: CallbackQuery):
 
     # map quest -> (bit, reward, predicate)
     u = get_user(cb.from_user.id) or {}
-    suf = "" if g == "xo" else "_ck"
+    suf = "_ck" if g == "checkers" else ""
     week_games = int(u.get("week_games" + suf, 0) or 0)
     week_wins = int(u.get("week_wins" + suf, 0) or 0)
     rating = int(u.get("rating" + suf, 1000) or 1000)
@@ -1055,7 +1084,12 @@ async def set_lang_cb(cb: CallbackQuery):
     upsert_user(cb.from_user.id, cb.from_user.username, cb.from_user.first_name, code)
     db_set_lang(cb.from_user.id, code)
     g = get_active_game(cb.from_user.id)
-    g_title = t(code, 'game_checkers') if g == 'checkers' else t(code, 'game_xo')
+    if g == "checkers":
+        g_title = t(code, "game_checkers")
+    elif g == "chess":
+        g_title = t(code, "game_chess")
+    else:
+        g_title = t(code, "game_xo")
     await safe_edit_text(cb.message, f"{t(code,'brand_title')}\n{g_title}", reply_markup=menu_kb(code, cb.from_user.id))
     await cb.answer(t(code, "lang_saved"), show_alert=False)
 
@@ -1105,7 +1139,12 @@ async def menu_profile(cb: CallbackQuery):
     rank_ck_txt = str(rank_ck) if rank_ck is not None else "—"
 
     g = get_active_game(cb.from_user.id)
-    g_title = t(lang, "game_checkers") if g == "checkers" else t(lang, "game_xo")
+    if g == "checkers":
+        g_title = t(lang, "game_checkers")
+    elif g == "chess":
+        g_title = t(lang, "game_chess")
+    else:
+        g_title = t(lang, "game_xo")
 
     lines = [f"👤 <b>{t(lang,'profile_title')}</b>", f"🎮 Активна гра: <b>{g_title}</b>"]
     if username:
