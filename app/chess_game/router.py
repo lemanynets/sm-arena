@@ -188,9 +188,33 @@ async def ch_ai_start(cb: CallbackQuery):
     init_db()
     upsert_user(cb.from_user.id, cb.from_user.username, cb.from_user.first_name, lang)
 
-    if user_active_game(cb.from_user.id):
-        await _safe_answer(cb, "You already have an active game.", show_alert=True)
-        return
+    active = user_active_game(cb.from_user.id)
+    if active:
+        if getattr(active, "finished", False):
+            end_private_game(active)
+        elif getattr(active, "vs_ai", False) and int(getattr(active, "white_id", 0)) == int(cb.from_user.id):
+            text = render_text(
+                active.white_name,
+                active.black_name,
+                active.board,
+                active.selected,
+                active.winner,
+                active.outcome_reason,
+            )
+            skin = get_skin(cb.from_user.id)
+            kb = build_board_kb(active.gid, active.board, active.selected, skin=skin)
+            m = await cb.message.answer(text, reply_markup=kb)
+            active.white_chat_id = m.chat.id
+            active.white_message_id = m.message_id
+            await cb.message.edit_text(
+                f"{t(lang,'brand_title')}\n{t(lang,'ch_choose')}",
+                reply_markup=_chess_menu(lang),
+            )
+            await _safe_answer(cb, "Game restored ✅")
+            return
+        else:
+            await _safe_answer(cb, "You already have an active game.", show_alert=True)
+            return
 
     gid = STORE.new_gid()
     gs = GameSession(
