@@ -41,6 +41,17 @@ async def _safe_edit(msg, text: str, reply_markup=None):
             return
         raise
 
+
+async def _safe_answer(cb: CallbackQuery, text: str | None = None, show_alert: bool = False):
+    """Ignore stale callback-query errors to keep game flow responsive."""
+    try:
+        await cb.answer(text=text, show_alert=show_alert)
+    except TelegramBadRequest as e:
+        s = str(e).lower()
+        if "query is too old" in s or "query id is invalid" in s or "response timeout expired" in s:
+            return
+        raise
+
 def _join_kb(gid: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(text="✅ Приєднатись (стати 🔵)", callback_data=f"ckj|{gid}")]]
@@ -66,7 +77,7 @@ async def cmd_checkers(msg: Message):
 
 @router.callback_query(F.data == "sm:menu:checkers")
 async def cb_menu_checkers(cb: CallbackQuery):
-    await cb.answer()
+    await _safe_answer(cb,)
     if cb.message:
         # If private => show checkers submenu; if group => create lobby
         if cb.message.chat.type == "private":
@@ -114,7 +125,7 @@ async def ck_play_ai(cb: CallbackQuery):
     except Exception:
         pass
     await cb.message.edit_text(t(lang, "ck_ai_choose"), reply_markup=_ai_levels_kb(lang))
-    await cb.answer()
+    await _safe_answer(cb,)
 
 @router.callback_query(F.data.startswith("sm:ck:ai:"))
 async def ck_ai_start(cb: CallbackQuery):
@@ -131,7 +142,7 @@ async def ck_ai_start(cb: CallbackQuery):
 
     # prevent starting multiple games
     if user_active_game(cb.from_user.id):
-        await cb.answer("Ти вже в грі.", show_alert=True)
+        await _safe_answer(cb,"Ти вже в грі.", show_alert=True)
         return
 
     # create session vs AI (user is RED, bot is BLUE)
@@ -158,7 +169,7 @@ async def ck_ai_start(cb: CallbackQuery):
     STORE.games[gid] = gs
     STORE.active_by_user[gs.red_id] = gid
 
-    await cb.answer()
+    await _safe_answer(cb,)
 
 @router.callback_query(F.data == "sm:ck:play_pvp")
 async def ck_play_pvp(cb: CallbackQuery):
@@ -171,12 +182,12 @@ async def ck_play_pvp(cb: CallbackQuery):
 
     if cb.message.chat.type != "private":
         # in group -> lobby
-        await cb.answer()
+        await _safe_answer(cb,)
         await start_checkers_from_message(cb.message)
         return
 
     if user_active_game(cb.from_user.id):
-        await cb.answer("Ти вже в грі.", show_alert=True)
+        await _safe_answer(cb,"Ти вже в грі.", show_alert=True)
         return
 
     await cb.message.edit_text(
@@ -186,7 +197,7 @@ async def ck_play_pvp(cb: CallbackQuery):
             [InlineKeyboardButton(text=t(lang, "back_to_games"), callback_data="sm:game:select")],
         ])
     )
-    await cb.answer()
+    await _safe_answer(cb,)
 
 @router.callback_query(F.data == "sm:ck:pvp:search")
 async def ck_pvp_search(cb: CallbackQuery):
@@ -198,13 +209,13 @@ async def ck_pvp_search(cb: CallbackQuery):
         pass
 
     if user_active_game(cb.from_user.id):
-        await cb.answer("Ти вже в грі.", show_alert=True)
+        await _safe_answer(cb,"Ти вже в грі.", show_alert=True)
         return
 
     status, gs = enqueue_or_match(cb.from_user.id, _safe_name(cb.from_user))
     if status == "waiting":
         await cb.message.edit_text(t(lang, "ck_searching"), reply_markup=_searching_kb(lang))
-        await cb.answer()
+        await _safe_answer(cb,)
         return
 
     # matched -> create two messages
@@ -229,7 +240,7 @@ async def ck_pvp_search(cb: CallbackQuery):
     gs.blue_chat_id, gs.blue_message_id = m_blue.chat.id, m_blue.message_id
 
     await cb.message.edit_text("✅ Знайшов суперника! Дивись гру в чаті з ботом.", reply_markup=_checkers_menu(lang))
-    await cb.answer()
+    await _safe_answer(cb,)
 
 @router.callback_query(F.data == "sm:ck:pvp:cancel")
 async def ck_pvp_cancel(cb: CallbackQuery):
@@ -245,7 +256,7 @@ async def ck_pvp_cancel(cb: CallbackQuery):
         f"{t(lang,'brand_title')}\n{t(lang,'ck_choose')}",
         reply_markup=_checkers_menu(lang)
     )
-    await cb.answer("Пошук зупинено.")
+    await _safe_answer(cb,"Пошук зупинено.")
 
 # ---------------- Group lobby (as before) ----------------
 async def start_checkers_from_message(msg: Message):
@@ -288,24 +299,24 @@ async def join_cb(cb: CallbackQuery):
     gid = cb.data.split("|", 1)[1]
     gs = get_game(gid)
     if not gs:
-        await cb.answer("Гру не знайдено.", show_alert=True)
+        await _safe_answer(cb,"Гру не знайдено.", show_alert=True)
         return
 
     if cb.message.chat.id != gs.chat_id:
-        await cb.answer("Ця гра в іншому чаті.", show_alert=True)
+        await _safe_answer(cb,"Ця гра в іншому чаті.", show_alert=True)
         return
 
     if cb.from_user.id == gs.red_id:
-        await cb.answer("Ти вже 🔴. Потрібен інший гравець 😄", show_alert=True)
+        await _safe_answer(cb,"Ти вже 🔴. Потрібен інший гравець 😄", show_alert=True)
         return
 
     if gs.blue_id and gs.blue_id != cb.from_user.id:
-        await cb.answer("Вже є гравець 🔵.", show_alert=True)
+        await _safe_answer(cb,"Вже є гравець 🔵.", show_alert=True)
         return
 
     joined = join_lobby(gs.chat_id, cb.from_user.id, _safe_name(cb.from_user))
     if not joined:
-        await cb.answer("Не вдалось приєднатись.", show_alert=True)
+        await _safe_answer(cb,"Не вдалось приєднатись.", show_alert=True)
         return
 
     gs = joined
@@ -313,7 +324,7 @@ async def join_cb(cb: CallbackQuery):
     skin = get_skin_ck(cb.from_user.id)
     kb = build_board_kb(gs.gid, gs.board, gs.turn, gs.selected, gs.forced_from, skin=skin)
 
-    await cb.answer("Починаємо!")
+    await _safe_answer(cb,"Починаємо!")
     await _safe_edit(cb.message, text, reply_markup=kb)
 
 # ---------------- Core gameplay (group + private + AI) ----------------
@@ -423,31 +434,31 @@ async def board_click(cb: CallbackQuery):
     try:
         _, gid, rc = cb.data.split("|")
     except ValueError:
-        await cb.answer("Bad data", show_alert=True)
+        await _safe_answer(cb,"Bad data", show_alert=True)
         return
 
     gs = get_game(gid)
     if not gs:
-        await cb.answer("Гру не знайдено.", show_alert=True)
+        await _safe_answer(cb,"Гру не знайдено.", show_alert=True)
         return
 
     # AI game: only red player exists
     if gs.vs_ai:
         if cb.from_user.id != gs.red_id:
-            await cb.answer("Це не твоя гра.", show_alert=True)
+            await _safe_answer(cb,"Це не твоя гра.", show_alert=True)
             return
     else:
         # group lobby still waiting?
         if gs.blue_id == 0 and not gs.is_private:
-            await cb.answer("Чекаємо другого гравця.", show_alert=True)
+            await _safe_answer(cb,"Чекаємо другого гравця.", show_alert=True)
             return
 
         if cb.from_user.id not in (gs.red_id, gs.blue_id):
-            await cb.answer("Це не твоя гра 😅", show_alert=True)
+            await _safe_answer(cb,"Це не твоя гра 😅", show_alert=True)
             return
 
     if gs.finished:
-        await cb.answer("Гра завершена. Натисни «Нова гра».", show_alert=True)
+        await _safe_answer(cb,"Гра завершена. Натисни «Нова гра».", show_alert=True)
         return
 
     # whose color is clicking
@@ -459,7 +470,7 @@ async def board_click(cb: CallbackQuery):
         color = RED  # vs ai
 
     if color != gs.turn:
-        await cb.answer("Не твій хід.", show_alert=True)
+        await _safe_answer(cb,"Не твій хід.", show_alert=True)
         return
 
     r, c = unpack_sq(rc)
@@ -470,13 +481,13 @@ async def board_click(cb: CallbackQuery):
     # 1) вибір шашки
     if gs.selected is None:
         if piece_color(gs.board[r][c]) != gs.turn:
-            await cb.answer("Вибери свою шашку.", show_alert=False)
+            await _safe_answer(cb,"Вибери свою шашку.", show_alert=False)
             return
         if (r, c) not in moves_map:
-            await cb.answer("Цією шашкою зараз ходити не можна.", show_alert=False)
+            await _safe_answer(cb,"Цією шашкою зараз ходити не можна.", show_alert=False)
             return
         gs.selected = (r, c)
-        await cb.answer()
+        await _safe_answer(cb,)
         await _edit_game_messages(cb, gs)
         return
 
@@ -484,7 +495,7 @@ async def board_click(cb: CallbackQuery):
     # перемикаємо вибір (тільки якщо немає примусового продовження взяття)
     if gs.forced_from is None and piece_color(gs.board[r][c]) == gs.turn and (r, c) in moves_map:
         gs.selected = (r, c)
-        await cb.answer()
+        await _safe_answer(cb,)
         await _edit_game_messages(cb, gs)
         return
 
@@ -492,7 +503,7 @@ async def board_click(cb: CallbackQuery):
     options = moves_map.get(from_sq, [])
     chosen = next((mv for mv in options if mv.to == (r, c)), None)
     if chosen is None:
-        await cb.answer("Невірний хід.", show_alert=False)
+        await _safe_answer(cb,"Невірний хід.", show_alert=False)
         return
 
     gs.board = apply_step(gs.board, chosen)
@@ -520,11 +531,11 @@ async def board_click(cb: CallbackQuery):
         gs.forced_from = None
         _finish_and_score(gs)
         await _tournament_hook(cb.bot, gs)
-        await cb.answer()
+        await _safe_answer(cb,)
         await _edit_game_messages(cb, gs)
         return
 
-    await cb.answer()
+    await _safe_answer(cb,)
     await _edit_game_messages(cb, gs)
 
     # AI response (if needed)
@@ -544,30 +555,30 @@ async def control_cb(cb: CallbackQuery):
     try:
         _, gid, action = cb.data.split("|")
     except ValueError:
-        await cb.answer("Bad data", show_alert=True)
+        await _safe_answer(cb,"Bad data", show_alert=True)
         return
 
     gs = get_game(gid)
     if not gs:
-        await cb.answer("Гру не знайдено.", show_alert=True)
+        await _safe_answer(cb,"Гру не знайдено.", show_alert=True)
         return
 
     uid = cb.from_user.id
     if gs.vs_ai:
         if uid != gs.red_id:
-            await cb.answer("Це не твоя гра.", show_alert=True)
+            await _safe_answer(cb,"Це не твоя гра.", show_alert=True)
             return
     else:
         if uid not in (gs.red_id, gs.blue_id):
-            await cb.answer("Це не твоя гра.", show_alert=True)
+            await _safe_answer(cb,"Це не твоя гра.", show_alert=True)
             return
 
     if action == "reset":
         if gs.forced_from is not None:
-            await cb.answer("Не можна скинути під час примусового взяття.", show_alert=True)
+            await _safe_answer(cb,"Не можна скинути під час примусового взяття.", show_alert=True)
             return
         gs.selected = None
-        await cb.answer("Скинуто.")
+        await _safe_answer(cb,"Скинуто.")
 
     elif action == "resign":
         color = RED if uid == gs.red_id else BLUE
@@ -576,7 +587,7 @@ async def control_cb(cb: CallbackQuery):
         gs.selected = None
         gs.forced_from = None
         _finish_and_score(gs)
-        await cb.answer("Здача прийнята.")
+        await _safe_answer(cb,"Здача прийнята.")
 
     elif action == "new":
         gs.board = initial_board()
@@ -585,10 +596,11 @@ async def control_cb(cb: CallbackQuery):
         gs.forced_from = None
         gs.finished = False
         gs.winner = None
-        await cb.answer("Нова гра!")
+        await _safe_answer(cb,"Нова гра!")
 
     else:
-        await cb.answer("Невідома дія.", show_alert=True)
+        await _safe_answer(cb,"Невідома дія.", show_alert=True)
         return
 
     await _edit_game_messages(cb, gs)
+
