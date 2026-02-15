@@ -1,0 +1,9 @@
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "python -m app.main"
+restartPolicyType = "ALWAYS"
+restartPolicyMaxRetries = 10
+healthcheckPath = "/healthz"
+healthcheckTimeout = 120
