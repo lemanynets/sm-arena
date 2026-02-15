@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from contextlib import suppress
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -41,11 +42,35 @@ async def _run_webhook_server(bot: Bot) -> None:
     app = create_liqpay_app(bot=bot)
     host = (config.WEBHOOK_HOST or "0.0.0.0").strip() if hasattr(config, "WEBHOOK_HOST") else "0.0.0.0"
     port = int(getattr(config, "WEBHOOK_PORT", 8080) or 8080)
+    log = logging.getLogger("sm-arena")
 
-    uv_cfg = uvicorn.Config(app=app, host=host, port=port, log_level="info", reload=False)
-    server = uvicorn.Server(uv_cfg)
-    logging.getLogger("sm-arena").info("Webhook server: http://%s:%s", host, port)
-    await server.serve()
+    while True:
+        try:
+            uv_cfg = uvicorn.Config(app=app, host=host, port=port, log_level="info", reload=False)
+            server = uvicorn.Server(uv_cfg)
+            log.info("Webhook server: http://%s:%s", host, port)
+            await server.serve()
+            log.warning("Webhook server stopped; restarting in 3s")
+            await asyncio.sleep(3)
+        except asyncio.CancelledError:
+            raise
+        except BaseException:
+            log.exception("Webhook server crashed; restarting in 5s")
+            await asyncio.sleep(5)
+
+
+async def _polling_loop(dp: Dispatcher, bot: Bot, log: logging.Logger) -> None:
+    while True:
+        try:
+            log.info("Starting polling...")
+            await dp.start_polling(bot)
+            log.warning("Polling stopped; restarting in 3s")
+            await asyncio.sleep(3)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.exception("Polling crashed; retrying in 5s")
+            await asyncio.sleep(5)
 
 
 async def main() -> None:
@@ -53,6 +78,14 @@ async def main() -> None:
     setup_logging()
     log = logging.getLogger("sm-arena")
     log.info("Starting SM Arena bot")
+    log.info(
+        "Config flags: BOT_TOKEN=%s LIQPAY_PUBLIC_KEY=%s LIQPAY_PRIVATE_KEY=%s WEBHOOK_BASE_URL=%s WEBHOOK_PORT=%s",
+        "set" if bool(getattr(config, "BOT_TOKEN", "").strip()) else "missing",
+        "set" if bool(getattr(config, "LIQPAY_PUBLIC_KEY", "").strip()) else "missing",
+        "set" if bool(getattr(config, "LIQPAY_PRIVATE_KEY", "").strip()) else "missing",
+        "set" if bool(getattr(config, "WEBHOOK_BASE_URL", "").strip()) else "missing",
+        getattr(config, "WEBHOOK_PORT", ""),
+    )
 
     bot = Bot(
         token=config.BOT_TOKEN,
@@ -82,13 +115,17 @@ async def main() -> None:
     dp.include_router(admin_stats_router)
 
     # background tasks
-    asyncio.create_task(_run_webhook_server(bot))
+    polling_task = asyncio.create_task(_polling_loop(dp, bot, log))
     asyncio.create_task(daily_tournament_loop(bot))
     asyncio.create_task(tournament_registrar_loop(bot))
     asyncio.create_task(vip_bonus_loop(bot))
 
-    log.info("Starting polling...")
-    await dp.start_polling(bot)
+    try:
+        await _run_webhook_server(bot)
+    finally:
+        polling_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await polling_task
 
 
 if __name__ == "__main__":
