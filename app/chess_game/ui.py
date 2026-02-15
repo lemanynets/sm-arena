@@ -53,7 +53,7 @@ def _theme(skin: str) -> dict:
         return {
             "pieces": _UNICODE_PIECES,
             "dark": "⬛",
-            "light": "⬜",
+            "light": "▪️",
             "selected": "🟦",
             "move": "🟩",
             "capture": "🟥",
@@ -61,7 +61,7 @@ def _theme(skin: str) -> dict:
     return {
         "pieces": _UNICODE_PIECES,
         "dark": "⬛",
-        "light": "⬜",
+        "light": "▪️",
         "selected": "🔷",
         "move": "🟩",
         "capture": "🟥",

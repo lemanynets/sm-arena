@@ -1341,7 +1341,26 @@ async def menu_skins(cb: CallbackQuery):
     lang = ensure_user(cb)
     g = get_active_game(cb.from_user.id)
     cur = get_skin_ck(cb.from_user.id) if g == "checkers" else get_skin(cb.from_user.id)
+    await safe_edit_text(
+        cb.message,
+        f"{t(lang, 'menu_skins')}\n\n{t(lang, 'skins_only_active')}",
+        reply_markup=skins_kb(lang, cur, only_active=True),
+    )
+    await cb.answer()
+
+@router.callback_query(F.data == "sm:skins:all")
+async def menu_skins_all(cb: CallbackQuery):
+    if not click_ok(cb.from_user.id):
+        await cb.answer(); return
+    init_db()
+    lang = ensure_user(cb)
+    g = get_active_game(cb.from_user.id)
+    cur = get_skin_ck(cb.from_user.id) if g == "checkers" else get_skin(cb.from_user.id)
     await safe_edit_text(cb.message, t(lang, "menu_skins"), reply_markup=skins_kb(lang, cur))
+    await cb.answer()
+
+@router.callback_query(F.data == "sm:skin:noop")
+async def skin_noop(cb: CallbackQuery):
     await cb.answer()
 
 @router.callback_query(F.data.startswith("sm:skin:set:"))
@@ -1374,7 +1393,11 @@ async def set_skin_cb(cb: CallbackQuery):
             set_active_item(cb.from_user.id, f"skin:xo:{skin}")
 
     cur = get_skin_ck(cb.from_user.id) if g == "checkers" else get_skin(cb.from_user.id)
-    await safe_edit_text(cb.message, t(lang, "menu_skins"), reply_markup=skins_kb(lang, cur))
+    await safe_edit_text(
+        cb.message,
+        f"{t(lang, 'menu_skins')}\n\n{t(lang, 'skins_only_active')}",
+        reply_markup=skins_kb(lang, cur, only_active=True),
+    )
     await cb.answer()
 
 @router.callback_query(F.data == "sm:menu:donate")

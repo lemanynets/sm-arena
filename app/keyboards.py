@@ -241,8 +241,16 @@ def donate_kb(lang: str, amounts) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def skins_kb(lang: str, current_skin: str) -> InlineKeyboardMarkup:
+def skins_kb(lang: str, current_skin: str, only_active: bool = False) -> InlineKeyboardMarkup:
     rows = []
+    if only_active:
+        title_map = {str(k): str(v) for k, v in SKINS}
+        cur_title = title_map.get(str(current_skin), str(current_skin))
+        rows.append([InlineKeyboardButton(text=f"✅ {t(lang, 'skins_active')}: {cur_title}", callback_data="sm:skin:noop")])
+        rows.append([InlineKeyboardButton(text=t(lang, "skins_show_all"), callback_data="sm:skins:all")])
+        rows.append([InlineKeyboardButton(text=t(lang, "back"), callback_data="sm:menu:home")])
+        return InlineKeyboardMarkup(inline_keyboard=rows)
+
     for key, title in SKINS:
         mark = "✅ " if str(key) == str(current_skin) else ""
         rows.append([InlineKeyboardButton(text=f"{mark}{title}", callback_data=f"sm:skin:set:{key}")])
