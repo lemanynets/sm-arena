@@ -7,37 +7,30 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 
-_ASCII_PIECES = {
-    "P": "P",
-    "N": "N",
-    "B": "B",
-    "R": "R",
-    "Q": "Q",
-    "K": "K",
-    "p": "p",
-    "n": "n",
-    "b": "b",
-    "r": "r",
-    "q": "q",
-    "k": "k",
+_DISPLAY_PIECES = {
+    # Pawns are intentionally compact.
+    "P": "◦",
+    "p": "•",
+    # Major pieces are larger and high-contrast.
+    "N": "♘",
+    "B": "♗",
+    "R": "♖",
+    "Q": "♕",
+    "K": "♔",
+    "n": "♞",
+    "b": "♝",
+    "r": "♜",
+    "q": "♛",
+    "k": "♚",
 }
 
 
 def _theme(skin: str) -> dict:
-    # Keep board symbols text-only to avoid black-square glyph artifacts in Telegram clients.
-    s = (skin or "default").lower()
-    if s in ("mono", "minimal", "neon"):
-        return {
-            "pieces": _ASCII_PIECES,
-            "dark": ".",
-            "light": " ",
-            "selected": "*",
-            "move": "+",
-            "capture": "x",
-        }
+    # Keep empty cells text-only to avoid dark-square glyph artifacts in Telegram clients.
+    _ = (skin or "default").lower()
     return {
-        "pieces": _ASCII_PIECES,
-        "dark": ".",
+        "pieces": _DISPLAY_PIECES,
+        "dark": "·",
         "light": " ",
         "selected": "*",
         "move": "+",
@@ -136,4 +129,3 @@ def render_text(
     sel = f" | selected: <code>{chess.square_name(selected)}</code>" if selected is not None else ""
     check = " | check" if board.is_check() else ""
     return f"Chess\nTurn: <b>{who}</b> ({side}){sel}{check}"
-
