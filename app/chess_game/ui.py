@@ -8,28 +8,28 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 
 _DISPLAY_PIECES = {
-    # Pawns: different color by side.
-    "P": "\u2659",  # ♙
-    "p": "\u265F",  # ♟
+    # Pawns: white and black.
+    "P": "\u2659",  # white pawn
+    "p": "\u265F",  # black pawn
 
     # Major pieces.
-    "N": "\u2658\ufe0f",  # ♘️
-    "B": "\u2657\ufe0f",  # ♗️
-    "R": "\u2656\ufe0f",  # ♖️
-    "Q": "\u2655\ufe0f",  # ♕️
-    "K": "\u2654\ufe0f",  # ♔️
-    "n": "\u265E\ufe0f",  # ♞️
-    "b": "\u265D\ufe0f",  # ♝️
-    "r": "\u265C\ufe0f",  # ♜️
-    "q": "\u265B\ufe0f",  # ♛️
-    "k": "\u265A\ufe0f",  # ♚️
+    "N": "\u2658\ufe0f",  # white knight (larger style)
+    "B": "\u2657\ufe0f",  # white bishop
+    "R": "\u2656\ufe0f",  # white rook
+    "Q": "\u2655\ufe0f",  # white queen
+    "K": "\u2654\ufe0f",  # white king
+    "n": "\u265E",        # black knight
+    "b": "\u265D",        # black bishop
+    "r": "\u265C",        # black rook
+    "q": "\u265B",        # black queen
+    "k": "\u265A",        # black king
 }
 
 
 _THEME = {
     "pieces": _DISPLAY_PIECES,
-    # Neutral board without colored square blocks.
-    "dark": "\u00B7",  # ·
+    # Neutral board without blue/white color blocks.
+    "dark": "\u00B7",  # dot
     "light": " ",
     # Move hints
     "selected": "*",
@@ -39,7 +39,6 @@ _THEME = {
 
 
 def _theme(_skin: str) -> dict:
-    # Keep a single deterministic theme to avoid client/font artifacts.
     return _THEME
 
 
