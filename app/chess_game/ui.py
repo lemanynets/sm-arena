@@ -8,33 +8,33 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 
 _DISPLAY_PIECES = {
-    # Pawns are intentionally compact.
-    "P": "◦",
-    "p": "•",
-    # Major pieces are larger and high-contrast.
-    "N": "♘",
-    "B": "♗",
-    "R": "♖",
-    "Q": "♕",
-    "K": "♔",
-    "n": "♞",
-    "b": "♝",
-    "r": "♜",
-    "q": "♛",
-    "k": "♚",
+    # Pawn shape (not dots)
+    "P": "â™™",
+    "p": "â™ź",
+    # Major pieces
+    "N": "â™",
+    "B": "â™—",
+    "R": "â™–",
+    "Q": "â™•",
+    "K": "â™”",
+    "n": "â™ž",
+    "b": "â™ť",
+    "r": "â™ś",
+    "q": "â™›",
+    "k": "â™š",
 }
 
 
 def _theme(skin: str) -> dict:
-    # Keep empty cells text-only to avoid dark-square glyph artifacts in Telegram clients.
+    # Chessboard close to classic light/blue look from the reference screenshot.
     _ = (skin or "default").lower()
     return {
         "pieces": _DISPLAY_PIECES,
-        "dark": "·",
-        "light": " ",
-        "selected": "*",
-        "move": "+",
-        "capture": "x",
+        "dark": "đźź¦",
+        "light": "â¬ś",
+        "selected": "đźź¨",
+        "move": "đźź©",
+        "capture": "đźźĄ",
     }
 
 
