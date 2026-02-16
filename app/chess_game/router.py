@@ -249,9 +249,13 @@ async def ch_play_pvp(cb: CallbackQuery):
         await start_chess_from_message(cb.message)
         return
 
-    if user_active_game(cb.from_user.id):
-        await _safe_answer(cb, "You already have an active game.", show_alert=True)
-        return
+    active = user_active_game(cb.from_user.id)
+    if active:
+        if getattr(active, "finished", False):
+            end_private_game(active)
+        else:
+            await _safe_answer(cb, "You already have an active game.", show_alert=True)
+            return
 
     await cb.message.edit_text(
         f"{t(lang,'brand_title')}\n{t(lang,'ch_menu_pvp')}",
@@ -269,9 +273,13 @@ async def ch_play_pvp(cb: CallbackQuery):
 async def ch_pvp_search(cb: CallbackQuery):
     lang = _lang_or_default(cb)
 
-    if user_active_game(cb.from_user.id):
-        await _safe_answer(cb, "You already have an active game.", show_alert=True)
-        return
+    active = user_active_game(cb.from_user.id)
+    if active:
+        if getattr(active, "finished", False):
+            end_private_game(active)
+        else:
+            await _safe_answer(cb, "You already have an active game.", show_alert=True)
+            return
 
     status, gs = enqueue_or_match(cb.from_user.id, _safe_name(cb.from_user))
     if status == "waiting":
@@ -346,7 +354,14 @@ async def join_cb(cb: CallbackQuery):
     gid = cb.data.split("|", 1)[1]
     gs = get_game(gid)
     if not gs:
-        await _safe_answer(cb, "Game not found.", show_alert=True)
+        lang = _lang_or_default(cb)
+        if cb.message and cb.message.chat.type == "private":
+            await _safe_edit(
+                cb.message,
+                f"{t(lang,'brand_title')}\n{t(lang,'ch_choose')}\n\nPrevious game is no longer available. Start a new one.",
+                reply_markup=_chess_menu(lang),
+            )
+        await _safe_answer(cb, "Game not found. Start a new one.", show_alert=True)
         return
 
     if cb.message.chat.id != gs.chat_id:
@@ -382,7 +397,14 @@ async def board_click(cb: CallbackQuery):
 
     gs = get_game(gid)
     if not gs:
-        await _safe_answer(cb, "Game not found.", show_alert=True)
+        lang = _lang_or_default(cb)
+        if cb.message and cb.message.chat.type == "private":
+            await _safe_edit(
+                cb.message,
+                f"{t(lang,'brand_title')}\n{t(lang,'ch_choose')}\n\nPrevious game was closed after restart. Start a new game.",
+                reply_markup=_chess_menu(lang),
+            )
+        await _safe_answer(cb, "Game not found. Start a new game.", show_alert=True)
         return
 
     if gs.vs_ai:
@@ -476,7 +498,14 @@ async def control_cb(cb: CallbackQuery):
 
     gs = get_game(gid)
     if not gs:
-        await _safe_answer(cb, "Game not found.", show_alert=True)
+        lang = _lang_or_default(cb)
+        if cb.message and cb.message.chat.type == "private":
+            await _safe_edit(
+                cb.message,
+                f"{t(lang,'brand_title')}\n{t(lang,'ch_choose')}\n\nPrevious game is no longer available. Start a new one.",
+                reply_markup=_chess_menu(lang),
+            )
+        await _safe_answer(cb, "Game not found. Start a new game.", show_alert=True)
         return
 
     uid = cb.from_user.id
