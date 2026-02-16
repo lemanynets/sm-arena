@@ -8,11 +8,11 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 
 _DISPLAY_PIECES = {
-    # Pawns use the same silhouette for both sides.
-    "P": "\u265F",  # ♟
+    # Pawns: different color by side.
+    "P": "\u2659",  # ♙
     "p": "\u265F",  # ♟
 
-    # Major pieces use emoji presentation selector to appear visually larger.
+    # Major pieces.
     "N": "\u2658\ufe0f",  # ♘️
     "B": "\u2657\ufe0f",  # ♗️
     "R": "\u2656\ufe0f",  # ♖️
@@ -28,13 +28,13 @@ _DISPLAY_PIECES = {
 
 _THEME = {
     "pieces": _DISPLAY_PIECES,
-    # Blue/white board style close to the reference screenshot.
-    "dark": "\U0001F7E6",      # 🟦
-    "light": "\u2B1C",          # ⬜
+    # Neutral board without colored square blocks.
+    "dark": "\u00B7",  # ·
+    "light": " ",
     # Move hints
-    "selected": "\U0001F7E8",   # 🟨
-    "move": "\U0001F7E9",       # 🟩
-    "capture": "\U0001F7E5",    # 🟥
+    "selected": "*",
+    "move": "+",
+    "capture": "x",
 }
 
 
