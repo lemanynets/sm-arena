@@ -7,21 +7,6 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 
-_UNICODE_PIECES = {
-    "P": "♙",
-    "N": "♘",
-    "B": "♗",
-    "R": "♖",
-    "Q": "♕",
-    "K": "♔",
-    "p": "♟",
-    "n": "♞",
-    "b": "♝",
-    "r": "♜",
-    "q": "♛",
-    "k": "♚",
-}
-
 _ASCII_PIECES = {
     "P": "P",
     "N": "N",
@@ -39,32 +24,24 @@ _ASCII_PIECES = {
 
 
 def _theme(skin: str) -> dict:
+    # Keep board symbols text-only to avoid black-square glyph artifacts in Telegram clients.
     s = (skin or "default").lower()
-    if s in ("mono", "minimal"):
+    if s in ("mono", "minimal", "neon"):
         return {
             "pieces": _ASCII_PIECES,
-            "dark": "·",
+            "dark": ".",
             "light": " ",
-            "selected": "■",
-            "move": "□",
+            "selected": "*",
+            "move": "+",
             "capture": "x",
         }
-    if s in ("neon",):
-        return {
-            "pieces": _UNICODE_PIECES,
-            "dark": "⬛",
-            "light": "▪️",
-            "selected": "🟦",
-            "move": "🟩",
-            "capture": "🟥",
-        }
     return {
-        "pieces": _UNICODE_PIECES,
-        "dark": "⬛",
-        "light": "▪️",
-        "selected": "🔷",
-        "move": "🟩",
-        "capture": "🟥",
+        "pieces": _ASCII_PIECES,
+        "dark": ".",
+        "light": " ",
+        "selected": "*",
+        "move": "+",
+        "capture": "x",
     }
 
 
@@ -143,19 +120,20 @@ def render_text(
     outcome_reason: str,
 ) -> str:
     if winner is chess.WHITE:
-        return f"♞ <b>Chess</b>\nWinner: <b>{white_name}</b> (white)\n<i>{outcome_reason or 'Game over'}</i>"
+        return f"Chess\nWinner: <b>{white_name}</b> (white)\n<i>{outcome_reason or 'Game over'}</i>"
     if winner is chess.BLACK:
-        return f"♞ <b>Chess</b>\nWinner: <b>{black_name}</b> (black)\n<i>{outcome_reason or 'Game over'}</i>"
+        return f"Chess\nWinner: <b>{black_name}</b> (black)\n<i>{outcome_reason or 'Game over'}</i>"
 
     if board.is_game_over(claim_draw=True):
         reason = outcome_reason
         if not reason:
             out = board.outcome(claim_draw=True)
             reason = _termination_label(str(out.termination)) if out else "Draw"
-        return f"♞ <b>Chess</b>\nDraw\n<i>{reason}</i>"
+        return f"Chess\nDraw\n<i>{reason}</i>"
 
     who = white_name if board.turn == chess.WHITE else black_name
     side = "white" if board.turn == chess.WHITE else "black"
     sel = f" | selected: <code>{chess.square_name(selected)}</code>" if selected is not None else ""
     check = " | check" if board.is_check() else ""
-    return f"♞ <b>Chess</b>\nTurn: <b>{who}</b> ({side}){sel}{check}"
+    return f"Chess\nTurn: <b>{who}</b> ({side}){sel}{check}"
+
