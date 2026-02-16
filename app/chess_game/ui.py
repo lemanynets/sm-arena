@@ -9,33 +9,37 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 _DISPLAY_PIECES = {
     # Pawn shape (not dots)
-    "P": "â™™",
-    "p": "â™ź",
+    "P": "\u2659",  # ♙
+    "p": "\u265F",  # ♟
     # Major pieces
-    "N": "â™",
-    "B": "â™—",
-    "R": "â™–",
-    "Q": "â™•",
-    "K": "â™”",
-    "n": "â™ž",
-    "b": "â™ť",
-    "r": "â™ś",
-    "q": "â™›",
-    "k": "â™š",
+    "N": "\u2658",  # ♘
+    "B": "\u2657",  # ♗
+    "R": "\u2656",  # ♖
+    "Q": "\u2655",  # ♕
+    "K": "\u2654",  # ♔
+    "n": "\u265E",  # ♞
+    "b": "\u265D",  # ♝
+    "r": "\u265C",  # ♜
+    "q": "\u265B",  # ♛
+    "k": "\u265A",  # ♚
 }
 
 
-def _theme(skin: str) -> dict:
-    # Chessboard close to classic light/blue look from the reference screenshot.
-    _ = (skin or "default").lower()
-    return {
-        "pieces": _DISPLAY_PIECES,
-        "dark": "đźź¦",
-        "light": "â¬ś",
-        "selected": "đźź¨",
-        "move": "đźź©",
-        "capture": "đźźĄ",
-    }
+_THEME = {
+    "pieces": _DISPLAY_PIECES,
+    # Blue/white board style
+    "dark": "\U0001F7E6",     # 🟦
+    "light": "\u2B1C",         # ⬜
+    # Move hints
+    "selected": "\U0001F7E8",  # 🟨
+    "move": "\U0001F7E9",      # 🟩
+    "capture": "\U0001F7E5",   # 🟥
+}
+
+
+def _theme(_skin: str) -> dict:
+    # Keep a single deterministic theme to avoid client/font artifacts.
+    return _THEME
 
 
 def unpack_sq(token: str) -> int:
