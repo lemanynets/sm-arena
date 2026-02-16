@@ -9,29 +9,27 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 _DISPLAY_PIECES = {
     # Pawns: white and black.
-    "P": "\u2659",  # white pawn
-    "p": "\u265F",  # black pawn
+    "P": "\u2659",        # white pawn
+    "p": "\u265F\ufe0e",  # black pawn (forced text style)
 
     # Major pieces.
-    "N": "\u2658\ufe0f",  # white knight (larger style)
+    "N": "\u2658\ufe0f",  # white knight
     "B": "\u2657\ufe0f",  # white bishop
     "R": "\u2656\ufe0f",  # white rook
     "Q": "\u2655\ufe0f",  # white queen
     "K": "\u2654\ufe0f",  # white king
-    "n": "\u265E",        # black knight
-    "b": "\u265D",        # black bishop
-    "r": "\u265C",        # black rook
-    "q": "\u265B",        # black queen
-    "k": "\u265A",        # black king
+    "n": "\u265E\ufe0e",  # black knight
+    "b": "\u265D\ufe0e",  # black bishop
+    "r": "\u265C\ufe0e",  # black rook
+    "q": "\u265B\ufe0e",  # black queen
+    "k": "\u265A\ufe0e",  # black king
 }
 
 
 _THEME = {
     "pieces": _DISPLAY_PIECES,
-    # Neutral board without blue/white color blocks.
-    "dark": "\u00B7",  # dot
+    "dark": "\u00B7",
     "light": " ",
-    # Move hints
     "selected": "*",
     "move": "+",
     "capture": "x",
