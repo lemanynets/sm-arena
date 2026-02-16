@@ -8,32 +8,33 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 
 _DISPLAY_PIECES = {
-    # Pawn shape (not dots)
-    "P": "\u2659",  # ♙
+    # Pawns use the same silhouette for both sides.
+    "P": "\u265F",  # ♟
     "p": "\u265F",  # ♟
-    # Major pieces
-    "N": "\u2658",  # ♘
-    "B": "\u2657",  # ♗
-    "R": "\u2656",  # ♖
-    "Q": "\u2655",  # ♕
-    "K": "\u2654",  # ♔
-    "n": "\u265E",  # ♞
-    "b": "\u265D",  # ♝
-    "r": "\u265C",  # ♜
-    "q": "\u265B",  # ♛
-    "k": "\u265A",  # ♚
+
+    # Major pieces use emoji presentation selector to appear visually larger.
+    "N": "\u2658\ufe0f",  # ♘️
+    "B": "\u2657\ufe0f",  # ♗️
+    "R": "\u2656\ufe0f",  # ♖️
+    "Q": "\u2655\ufe0f",  # ♕️
+    "K": "\u2654\ufe0f",  # ♔️
+    "n": "\u265E\ufe0f",  # ♞️
+    "b": "\u265D\ufe0f",  # ♝️
+    "r": "\u265C\ufe0f",  # ♜️
+    "q": "\u265B\ufe0f",  # ♛️
+    "k": "\u265A\ufe0f",  # ♚️
 }
 
 
 _THEME = {
     "pieces": _DISPLAY_PIECES,
-    # Blue/white board style
-    "dark": "\U0001F7E6",     # 🟦
-    "light": "\u2B1C",         # ⬜
+    # Blue/white board style close to the reference screenshot.
+    "dark": "\U0001F7E6",      # 🟦
+    "light": "\u2B1C",          # ⬜
     # Move hints
-    "selected": "\U0001F7E8",  # 🟨
-    "move": "\U0001F7E9",      # 🟩
-    "capture": "\U0001F7E5",   # 🟥
+    "selected": "\U0001F7E8",   # 🟨
+    "move": "\U0001F7E9",       # 🟩
+    "capture": "\U0001F7E5",    # 🟥
 }
 
 
