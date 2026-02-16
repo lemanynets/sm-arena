@@ -102,29 +102,12 @@ async def coins_menu(msg: Message):
 @router.message(F.text.in_({"VIP", "⭐ VIP"}))
 async def vip_menu(msg: Message):
     lang = _lang(msg)
-    sku = getattr(config, "LIQPAY_VIP_SKU", "vip_30d")
-    price_uah = int(getattr(config, "LIQPAY_VIP_PRICE_UAH", 79))
-    days = int(getattr(config, "LIQPAY_VIP_DAYS", 30))
-
-    vip_daily = int(getattr(config, "VIP_DAILY_COINS", 10))
-    vip_discount = int(getattr(config, "VIP_SHOP_DISCOUNT_PCT", 10))
-
-    base = _base_url()
-
     kb = InlineKeyboardBuilder()
-    kb.button(text=f"Buy VIP {days} days - {price_uah} UAH", callback_data=f"liqpay:vip:{sku}")
+    kb.button(text="💎 VIP", callback_data="sm:menu:vip")
+    kb.button(text="🪙 Coins", callback_data="sm:menu:coins")
     kb.adjust(1)
 
-    text = (
-        f"{t(lang, 'pay_vip_title').format(days=days)}\n\n"
-        f"- +{vip_daily} coins daily\n"
-        "- +1 weekly pack\n"
-        f"- {vip_discount}% shop discount\n\n"
-        f"{t(lang, 'pay_vip_price').format(price=price_uah)}"
-    )
-    if not base:
-        text += f"\n\n{t(lang, 'pay_webhook_warning')}"
-    await msg.answer(text, reply_markup=kb.as_markup())
+    await msg.answer("VIP доступний лише за монети. Відкрий VIP-меню або купи монети.", reply_markup=kb.as_markup())
 
 
 @router.callback_query(F.data.startswith("liqpay:coins:"))
@@ -176,32 +159,4 @@ async def cb_pay_coins(cb: CallbackQuery):
 @router.callback_query(F.data.startswith("liqpay:vip:"))
 async def cb_pay_vip(cb: CallbackQuery):
     lang = _lang(cb)
-    if not _base_url():
-        await cb.answer(t(lang, "pay_missing_webhook"), show_alert=True)
-        return
-
-    sku = getattr(config, "LIQPAY_VIP_SKU", "vip_30d")
-    price_uah = int(getattr(config, "LIQPAY_VIP_PRICE_UAH", 79))
-    days = int(getattr(config, "LIQPAY_VIP_DAYS", 30))
-
-    order_id = db.create_order(cb.from_user.id, sku, uah_to_minor(price_uah), "UAH")
-    log.info(
-        "order created kind=vip order_id=%s user_id=%s sku=%s amount_uah=%s",
-        order_id,
-        cb.from_user.id,
-        sku,
-        price_uah,
-    )
-    url = _pay_url(order_id)
-
-    kb = InlineKeyboardBuilder()
-    kb.button(text=t(lang, "pay_btn"), url=url)
-    kb.adjust(1)
-
-    await cb.message.answer(
-        f"{t(lang, 'pay_vip_title').format(days=days)}\n"
-        f"{t(lang, 'pay_vip_price').format(price=price_uah)}\n"
-        f"{t(lang, 'pay_press_button')}",
-        reply_markup=kb.as_markup(),
-    )
-    await cb.answer()
+    await cb.answer("VIP доступний лише за монети.", show_alert=True)

@@ -1,7 +1,7 @@
 # app/keyboards.py
 
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from app.config import SKINS, VIP_PLANS, VIP_COIN_PLANS
+from app.config import SKINS, VIP_COIN_PLANS
 from app.i18n import t
 
 
@@ -147,6 +147,7 @@ def market_menu_kb(lang: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🛍 Магазин", callback_data="sm:market:shop")],
         [InlineKeyboardButton(text="🎒 Інвентар", callback_data="sm:market:inv")],
+        [InlineKeyboardButton(text=t(lang, "menu_coins"), callback_data="sm:menu:coins")],
         [InlineKeyboardButton(text=t(lang, "menu_vip"), callback_data="sm:menu:vip")],
         [InlineKeyboardButton(text=t(lang, "menu_donate"), callback_data="sm:menu:donate")],
         [InlineKeyboardButton(text=t(lang, "back"), callback_data="sm:menu:home")],
@@ -260,17 +261,6 @@ def skins_kb(lang: str, current_skin: str, only_active: bool = False) -> InlineK
 
 def vip_kb(lang: str) -> InlineKeyboardMarkup:
     rows = []
-    for it in VIP_PLANS:
-        if isinstance(it, (list, tuple)) and len(it) >= 2:
-            days = int(it[0]); stars = int(it[1])
-        elif isinstance(it, dict):
-            days = int(it.get("days", 0)); stars = int(it.get("stars", 0))
-        else:
-            continue
-        if days <= 0 or stars <= 0:
-            continue
-        rows.append([InlineKeyboardButton(text=f"Stars {days}d - {stars}", callback_data=f"sm:vip:buy:{days}:{stars}")])
-
     for it in VIP_COIN_PLANS:
         if isinstance(it, (list, tuple)) and len(it) >= 2:
             days = int(it[0]); coins = int(it[1])
@@ -282,6 +272,7 @@ def vip_kb(lang: str) -> InlineKeyboardMarkup:
             continue
         rows.append([InlineKeyboardButton(text=f"Coins {days}d - {coins}", callback_data=f"sm:vip:buycoins:{days}:{coins}")])
 
+    rows.append([InlineKeyboardButton(text=t(lang, "menu_coins"), callback_data="sm:menu:coins")])
     rows.append([InlineKeyboardButton(text=t(lang, "back"), callback_data="sm:menu:home")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 

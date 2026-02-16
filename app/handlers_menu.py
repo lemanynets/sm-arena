@@ -37,6 +37,7 @@ from app.rating import update_elo
 from app.winline import get_winline
 from app.shop_items import items_for_game, get_item
 
+from app import config
 from app.config import (
     ADMIN_IDS,
     SEASON_LENGTH_DAYS,
@@ -49,7 +50,6 @@ from app.config import (
     DONATE_AMOUNTS,
     DEFAULT_SKIN,
     SKINS,
-    VIP_PLANS,
     VIP_COIN_PLANS,
     VIP_FALLBACK_AI_SEC,
     NONVIP_FALLBACK_AI_SEC,
@@ -299,11 +299,6 @@ def donate_invoice(uid: int, stars: int, lang: str):
     payload = f"SM_ARENA_DONATE:{uid}:{stars}:{int(time.time())}"
     return prices, payload
 
-def vip_invoice(uid: int, days: int, stars: int, lang: str):
-    prices = [LabeledPrice(label=f"SM Arena VIP {days} days", amount=int(stars))]
-    payload = f"SM_ARENA_VIP:{uid}:{days}:{stars}:{int(time.time())}"
-    return prices, payload
-
 @router.pre_checkout_query()
 async def pre_checkout(pre: PreCheckoutQuery):
     await pre.answer(ok=True)
@@ -325,18 +320,6 @@ async def on_success_payment(m: Message):
         if stars > 0:
             pool = add_prize_pool(stars)
             await m.answer(f"✅ +{stars}⭐  | pool={pool}")
-        return
-
-    if payload.startswith("SM_ARENA_VIP"):
-        try:
-            parts = payload.split(":")
-            days = int(parts[2])
-        except Exception:
-            days = 0
-        if days > 0:
-            until = add_vip_days(m.from_user.id, days)
-            date = datetime.fromtimestamp(until, tz=timezone.utc).strftime("%Y-%m-%d")
-            await m.answer(f"✅ VIP +{days} days (until {date})")
         return
 
 # ---- commands ----
@@ -521,6 +504,31 @@ async def menu_market(cb: CallbackQuery):
     await safe_edit_text(cb.message, f"{t(lang,'market_title')}", reply_markup=market_menu_kb(lang))
     await cb.answer()
 
+@router.callback_query(F.data == "sm:menu:coins")
+async def menu_coins(cb: CallbackQuery):
+    if not click_ok(cb.from_user.id):
+        await cb.answer(); return
+    lang = ensure_user(cb)
+
+    packs = getattr(config, "LIQPAY_COIN_PACKS", {
+        "coins_50": (50, 19),
+        "coins_200": (200, 69),
+        "coins_500": (500, 159),
+        "coins_1200": (1200, 249),
+    })
+    base = str(getattr(config, "WEBHOOK_BASE_URL", "") or "").strip()
+
+    rows = []
+    for sku, (coins, price_uah) in packs.items():
+        rows.append([InlineKeyboardButton(text=f"{coins} coins - {price_uah} UAH", callback_data=f"liqpay:coins:{sku}")])
+    rows.append([InlineKeyboardButton(text=t(lang, "back"), callback_data="sm:menu:market")])
+    kb = InlineKeyboardMarkup(inline_keyboard=rows)
+
+    text = t(lang, "pay_choose_pack")
+    if not base:
+        text += f"\n\n{t(lang, 'pay_webhook_warning')}"
+    await safe_edit_text(cb.message, text, reply_markup=kb)
+    await cb.answer()
 
 # =========================
 # SHOP / INVENTORY (coins)
@@ -759,7 +767,11 @@ async def menu_balance(cb: CallbackQuery):
     init_db()
     lang = ensure_user(cb)
     coins = get_coins(cb.from_user.id)
-    await safe_edit_text(cb.message, f"{t(lang,'menu_balance')}: <b>{coins}</b> 🪙", reply_markup=_back_home_kb(lang))
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=t(lang, "menu_coins"), callback_data="sm:menu:coins")],
+        [InlineKeyboardButton(text=t(lang, "back"), callback_data="sm:menu:home")],
+    ])
+    await safe_edit_text(cb.message, f"{t(lang,'menu_balance')}: <b>{coins}</b> 🪙", reply_markup=kb)
     await cb.answer()
 
 
@@ -1441,27 +1453,6 @@ async def menu_vip(cb: CallbackQuery):
         text = t(lang, "vip_status_off")
     await safe_edit_text(cb.message, f"{t(lang,'vip_title')}\n\n{text}", reply_markup=vip_kb(lang))
     await cb.answer()
-
-@router.callback_query(F.data.startswith("sm:vip:buy:"))
-async def vip_buy(cb: CallbackQuery):
-    if not click_ok(cb.from_user.id):
-        await cb.answer(); return
-    init_db()
-    lang = ensure_user(cb)
-    _, _, _, days, stars = cb.data.split(":")
-    days = int(days); stars = int(stars)
-    prices, payload = vip_invoice(cb.from_user.id, days, stars, lang)
-    await cb.bot.send_invoice(
-        chat_id=cb.message.chat.id,
-        title=f"SM Arena VIP {days} days",
-        description=f"VIP: priority matchmaking + no sponsor banner ({days} days)",
-        payload=payload,
-        provider_token="",
-        currency="XTR",
-        prices=prices,
-    )
-    await cb.answer()
-
 
 @router.callback_query(F.data.startswith("sm:vip:buycoins:"))
 async def vip_buy_coins(cb: CallbackQuery):
