@@ -6,7 +6,6 @@ TEXTS = {
     "uk": {
         "brand_title": "🎮 SM Arena",
         "choose": "Обери режим гри:",
-        "start_greeting": "👋 Вітаю в SM Arena!\nТут можна грати в XO, шашки та шахи проти людей або AI.",
         "choose_ai": "🤖 Обери рівень AI:",
         "your_move": "твій хід",
         "choose_game": "Обери гру:",
@@ -160,7 +159,6 @@ TEXTS = {
     "en": {
         "brand_title": "🎮 SM Arena",
         "choose": "Choose game mode:",
-        "start_greeting": "👋 Welcome to SM Arena!\nPlay XO, checkers, and chess versus people or AI.",
         "choose_ai": "🤖 Choose AI level:",
         "your_move": "your move",
         "choose_game": "Choose a game:",
