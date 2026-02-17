@@ -41,12 +41,12 @@ async def start_xo_tournament_match(bot: Bot, a_id: int, b_id: int, tournament_i
     ma = await bot.send_message(
         a_id,
         f"🏆 {t(a_lang,'tourn_match_found')}",
-        reply_markup=board_kb_pvp(match_id, board, a_lang, skin=get_skin(a_id))
+        reply_markup=board_kb_pvp(match_id, board, a_lang, skin=get_skin(a_id), show_controls=False)
     )
     mb = await bot.send_message(
         b_id,
         f"🏆 {t(b_lang,'tourn_match_found')}",
-        reply_markup=board_kb_pvp(match_id, board, b_lang, skin=get_skin(b_id))
+        reply_markup=board_kb_pvp(match_id, board, b_lang, skin=get_skin(b_id), show_controls=False)
     )
 
     # Inject into handlers_menu PVP registry

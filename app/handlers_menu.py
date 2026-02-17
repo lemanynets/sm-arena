@@ -1509,7 +1509,7 @@ async def ai_start(cb: CallbackQuery):
     level = cb.data.split(":")[-1]
     match_id = str(uuid.uuid4())[:8]
     board = "........."
-    AI_MATCHES[match_id] = {"level": level, "board": board, "user_id": cb.from_user.id}
+    AI_MATCHES[match_id] = {"level": level, "board": board, "user_id": cb.from_user.id, "status": "playing"}
     await safe_edit_text(cb.message, 
         f"🤖 AI ({level}) — {t(lang,'your_move')}",
         reply_markup=board_kb(match_id, board, lang, highlight=set(), skin=get_skin(cb.from_user.id))
@@ -1534,12 +1534,15 @@ async def ai_move(cb: CallbackQuery):
     state = AI_MATCHES.get(match_id)
     if not state:
         await cb.answer("Game expired", show_alert=True); return
+    if state.get("status") != "playing":
+        await cb.answer("Game ended. Start a new one.", show_alert=True); return
 
     board = state["board"]; level = state["level"]
     try:
         board = apply_move(board, cell, "X")
     except Exception:
         await cb.answer("Cell taken"); return
+    state["board"] = board
 
     w = check_winner(board)
     if w:
@@ -1575,6 +1578,52 @@ async def ai_move(cb: CallbackQuery):
         reply_markup=board_kb(match_id, board, lang, highlight=set(), skin=get_skin(cb.from_user.id))
     )
     await cb.answer()
+
+@router.callback_query(F.data.startswith("sm:ai:ctrl:"))
+async def ai_control(cb: CallbackQuery):
+    if not click_ok(cb.from_user.id):
+        await cb.answer(); return
+    init_db()
+    lang = ensure_user(cb)
+
+    parts = (cb.data or "").split(":")
+    if len(parts) < 5:
+        await cb.answer("Bad request", show_alert=True); return
+    match_id = parts[3]
+    action = parts[4]
+
+    state = AI_MATCHES.get(match_id)
+    if not state:
+        await cb.answer("Game expired", show_alert=True); return
+    if int(state.get("user_id") or 0) != int(cb.from_user.id):
+        await cb.answer("Not your game", show_alert=True); return
+
+    level = str(state.get("level") or "normal")
+
+    if action in ("reset", "new"):
+        board = "........."
+        state["board"] = board
+        state["status"] = "playing"
+        await safe_edit_text(
+            cb.message,
+            f"🤖 AI ({level}) — {t(lang,'your_move')}",
+            reply_markup=board_kb(match_id, board, lang, highlight=set(), skin=get_skin(cb.from_user.id)),
+        )
+        await cb.answer("Reset." if action == "reset" else "New game!")
+        return
+
+    if action == "resign":
+        state["status"] = "ended"
+        board = str(state.get("board") or ".........")
+        await safe_edit_text(
+            cb.message,
+            "Game ended by resignation.",
+            reply_markup=board_kb(match_id, board, lang, highlight=set(), skin=get_skin(cb.from_user.id)),
+        )
+        await cb.answer("Resigned.")
+        return
+
+    await cb.answer("Unknown action", show_alert=True)
 
 # ---- PvP random matchmaking (VIP first) ----
 @router.callback_query(F.data == "sm:menu:play_random")
@@ -1676,7 +1725,7 @@ async def random_fallback_to_ai(cb: CallbackQuery, uid: int, chat_id: int, msg_i
     # start normal AI in same message
     match_id = str(uuid.uuid4())[:8]
     board = "........."
-    AI_MATCHES[match_id] = {"level": "normal", "board": board, "user_id": uid}
+    AI_MATCHES[match_id] = {"level": "normal", "board": board, "user_id": uid, "status": "playing"}
     await cb.bot.edit_message_text(
         chat_id=chat_id, message_id=msg_id,
         text=f"🤖 AI (normal) — {t(lang,'your_move')}",
@@ -1786,12 +1835,12 @@ async def pvp_move(cb: CallbackQuery):
         await _edit(
             m.get("x_chat"), m.get("x_msg"),
             f"🎮 PvP | {turn_txt}",
-            board_kb_pvp(match_id, new_board, m.get("x_lang","en"), highlight=set(), skin=get_skin(m["x"]))
+            board_kb_pvp(match_id, new_board, m.get("x_lang","en"), highlight=set(), skin=get_skin(m["x"]), show_controls=not bool(m.get("tmatch_id")))
         )
         await _edit(
             m.get("o_chat"), m.get("o_msg"),
             f"🎮 PvP | {turn_txt}",
-            board_kb_pvp(match_id, new_board, m.get("o_lang","en"), highlight=set(), skin=get_skin(m["o"]))
+            board_kb_pvp(match_id, new_board, m.get("o_lang","en"), highlight=set(), skin=get_skin(m["o"]), show_controls=not bool(m.get("tmatch_id")))
         )
         await cb.answer()
         return
@@ -1873,14 +1922,100 @@ async def pvp_move(cb: CallbackQuery):
     await _edit(
         m.get("x_chat"), m.get("x_msg"),
         text_x,
-        board_kb_pvp(match_id, new_board, m.get("x_lang","en"), highlight=hl, skin=get_skin(x_id))
+        board_kb_pvp(match_id, new_board, m.get("x_lang","en"), highlight=hl, skin=get_skin(x_id), show_controls=not bool(m.get("tmatch_id")))
     )
     await _edit(
         m.get("o_chat"), m.get("o_msg"),
         text_o,
-        board_kb_pvp(match_id, new_board, m.get("o_lang","en"), highlight=hl, skin=get_skin(o_id))
+        board_kb_pvp(match_id, new_board, m.get("o_lang","en"), highlight=hl, skin=get_skin(o_id), show_controls=not bool(m.get("tmatch_id")))
     )
     await cb.answer()
+
+
+@router.callback_query(F.data.startswith("sm:pvp:ctrl:"))
+async def pvp_control(cb: CallbackQuery):
+    if not click_ok(cb.from_user.id):
+        await cb.answer(); return
+    init_db()
+    ensure_user(cb)
+
+    parts = (cb.data or "").split(":")
+    if len(parts) < 5:
+        await cb.answer("Bad request", show_alert=True); return
+    match_id = parts[3]
+    action = parts[4]
+
+    m = PVP_MATCHES.get(match_id)
+    if not m:
+        await cb.answer("Game ended", show_alert=True); return
+
+    uid = cb.from_user.id
+    if uid not in (m.get("x"), m.get("o")):
+        await cb.answer("Not your game", show_alert=True); return
+
+    # Keep tournament flow strict.
+    if m.get("tmatch_id"):
+        await cb.answer("Unavailable in tournament match", show_alert=True); return
+
+    async def _edit(chat_id: int, msg_id: int, text: str, kb):
+        try:
+            await cb.bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text=text, reply_markup=kb)
+        except TelegramBadRequest as e:
+            if "message is not modified" in str(e):
+                return
+        except Exception:
+            return
+
+    if action == "reset":
+        await cb.answer("Reset.")
+        return
+
+    if action == "new":
+        m["board"] = "........."
+        m["turn"] = "X"
+        m["status"] = "playing"
+        m["last_move"] = time.time()
+        set_pvp_timer(match_id, cb)
+        turn_txt = "❌ (X)"
+        await _edit(
+            m.get("x_chat"),
+            m.get("x_msg"),
+            f"🎮 PvP | {turn_txt}",
+            board_kb_pvp(match_id, m["board"], m.get("x_lang", "en"), highlight=set(), skin=get_skin(m["x"]), show_controls=True),
+        )
+        await _edit(
+            m.get("o_chat"),
+            m.get("o_msg"),
+            f"🎮 PvP | {turn_txt}",
+            board_kb_pvp(match_id, m["board"], m.get("o_lang", "en"), highlight=set(), skin=get_skin(m["o"]), show_controls=True),
+        )
+        await cb.answer("New game!")
+        return
+
+    if action == "resign":
+        m["status"] = "ended"
+        cancel_pvp_timer(match_id)
+        x_id = int(m["x"])
+        o_id = int(m["o"])
+        x_text = "You lose (resigned)." if uid == x_id else "You win (opponent resigned)."
+        o_text = "You lose (resigned)." if uid == o_id else "You win (opponent resigned)."
+        board = str(m.get("board") or ".........")
+        await _edit(
+            m.get("x_chat"),
+            m.get("x_msg"),
+            x_text,
+            board_kb_pvp(match_id, board, m.get("x_lang", "en"), highlight=set(), skin=get_skin(x_id), show_controls=True),
+        )
+        await _edit(
+            m.get("o_chat"),
+            m.get("o_msg"),
+            o_text,
+            board_kb_pvp(match_id, board, m.get("o_lang", "en"), highlight=set(), skin=get_skin(o_id), show_controls=True),
+        )
+        await cb.answer("Resigned.")
+        return
+
+    await cb.answer("Unknown action", show_alert=True)
 
 
 # ---------------- Referrals UI ----------------
@@ -2175,8 +2310,8 @@ async def _start_tourn_pvp(bot: Bot, a_id: int, b_id: int, tournament_id: int, t
     # send messages
     a_lang = db_get_lang(a_id) or "en"
     b_lang = db_get_lang(b_id) or "en"
-    ma = await bot.send_message(a_id, f"🏆 {t(a_lang,'tourn_match_found')}", reply_markup=board_kb_pvp(match_id, board, a_lang, skin=get_skin(a_id)))
-    mb = await bot.send_message(b_id, f"🏆 {t(b_lang,'tourn_match_found')}", reply_markup=board_kb_pvp(match_id, board, b_lang, skin=get_skin(b_id)))
+    ma = await bot.send_message(a_id, f"🏆 {t(a_lang,'tourn_match_found')}", reply_markup=board_kb_pvp(match_id, board, a_lang, skin=get_skin(a_id), show_controls=False))
+    mb = await bot.send_message(b_id, f"🏆 {t(b_lang,'tourn_match_found')}", reply_markup=board_kb_pvp(match_id, board, b_lang, skin=get_skin(b_id), show_controls=False))
     PVP_MATCHES[match_id]={
         "board": board,
         "x": a_id,

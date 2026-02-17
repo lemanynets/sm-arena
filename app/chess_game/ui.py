@@ -89,11 +89,11 @@ def build_board_kb(
         kb.row(*row)
 
     kb.row(
-        InlineKeyboardButton(text="Reset", callback_data=f"chc|{gid}|reset"),
-        InlineKeyboardButton(text="Resign", callback_data=f"chc|{gid}|resign"),
+        InlineKeyboardButton(text="\U0001F504 \u0421\u043A\u0438\u043D\u0443\u0442\u0438", callback_data=f"chc|{gid}|reset"),
+        InlineKeyboardButton(text="\U0001F3C1 \u0417\u0434\u0430\u0442\u0438\u0441\u044F", callback_data=f"chc|{gid}|resign"),
     )
-    kb.row(InlineKeyboardButton(text="Menu", callback_data="sm:game:chess"))
-    kb.row(InlineKeyboardButton(text="New game", callback_data=f"chc|{gid}|new"))
+    kb.row(InlineKeyboardButton(text="\u2B05\uFE0F \u041C\u0435\u043D\u044E", callback_data="sm:game:chess"))
+    kb.row(InlineKeyboardButton(text="\u267B\uFE0F \u041D\u043E\u0432\u0430 \u0433\u0440\u0430", callback_data=f"chc|{gid}|new"))
     return kb.as_markup()
 
 

@@ -290,11 +290,24 @@ def board_kb(match_id: str, board: str, lang: str, highlight=set(), skin: str = 
             ))
         rows.append(row)
 
-    rows.append([InlineKeyboardButton(text=t(lang, "back"), callback_data="sm:menu:home")])
+    rows.append([
+        InlineKeyboardButton(text="\U0001F504 \u0421\u043A\u0438\u043D\u0443\u0442\u0438", callback_data=f"sm:ai:ctrl:{match_id}:reset"),
+        InlineKeyboardButton(text="\U0001F3C1 \u0417\u0434\u0430\u0442\u0438\u0441\u044F", callback_data=f"sm:ai:ctrl:{match_id}:resign"),
+    ])
+    rows.append([InlineKeyboardButton(text="\u2B05\uFE0F \u041C\u0435\u043D\u044E", callback_data="sm:game:xo")])
+    rows.append([InlineKeyboardButton(text="\u267B\uFE0F \u041D\u043E\u0432\u0430 \u0433\u0440\u0430", callback_data=f"sm:ai:ctrl:{match_id}:new")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def board_kb_pvp(match_id: str, board: str, lang: str, highlight=set(), extra_rows=None, skin: str = "default") -> InlineKeyboardMarkup:
+def board_kb_pvp(
+    match_id: str,
+    board: str,
+    lang: str,
+    highlight=set(),
+    extra_rows=None,
+    skin: str = "default",
+    show_controls: bool = True,
+) -> InlineKeyboardMarkup:
     rows = []
     for r in range(3):
         row = []
@@ -309,6 +322,14 @@ def board_kb_pvp(match_id: str, board: str, lang: str, highlight=set(), extra_ro
     if extra_rows:
         rows.extend(extra_rows)
 
-    rows.append([InlineKeyboardButton(text=t(lang, "back"), callback_data="sm:menu:home")])
+    if show_controls:
+        rows.append([
+            InlineKeyboardButton(text="\U0001F504 \u0421\u043A\u0438\u043D\u0443\u0442\u0438", callback_data=f"sm:pvp:ctrl:{match_id}:reset"),
+            InlineKeyboardButton(text="\U0001F3C1 \u0417\u0434\u0430\u0442\u0438\u0441\u044F", callback_data=f"sm:pvp:ctrl:{match_id}:resign"),
+        ])
+        rows.append([InlineKeyboardButton(text="\u2B05\uFE0F \u041C\u0435\u043D\u044E", callback_data="sm:game:xo")])
+        rows.append([InlineKeyboardButton(text="\u267B\uFE0F \u041D\u043E\u0432\u0430 \u0433\u0440\u0430", callback_data=f"sm:pvp:ctrl:{match_id}:new")])
+    else:
+        rows.append([InlineKeyboardButton(text=t(lang, "back"), callback_data="sm:menu:home")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
