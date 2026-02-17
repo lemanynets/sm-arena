@@ -368,6 +368,7 @@ async def start(m: Message):
         return
 
     active = get_active_game(m.from_user.id)
+    await m.answer(t(lang, "start_greeting"))
     await m.answer(
         f"{t(lang,'brand_title')}\n{t(lang,'choose_game')}\n\n{t(lang,'choose_game_hint')}",
         reply_markup=games_select_kb(lang, active)
