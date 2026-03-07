@@ -748,6 +748,14 @@ async def market_buy(cb: CallbackQuery):
         else:
             set_skin_cell(cb.from_user.id, val)
         set_active_item(cb.from_user.id, iid)
+    elif it.get("kind") == "skin_chess_board":
+        from app.db import set_skin_chess_board
+        set_skin_chess_board(cb.from_user.id, str(it.get("value") or "classic"))
+        set_active_item(cb.from_user.id, iid)
+    elif it.get("kind") == "skin_chess_pieces":
+        from app.db import set_skin_chess_pieces
+        set_skin_chess_pieces(cb.from_user.id, str(it.get("value") or "classic"))
+        set_active_item(cb.from_user.id, iid)
 
     await cb.answer("✅ Куплено та активовано!")
     await market_item(cb)
@@ -792,6 +800,14 @@ async def market_activate(cb: CallbackQuery):
             set_skin_cell_ck(cb.from_user.id, val)
         else:
             set_skin_cell(cb.from_user.id, val)
+        set_active_item(cb.from_user.id, iid)
+    elif it.get("kind") == "skin_chess_board":
+        from app.db import set_skin_chess_board
+        set_skin_chess_board(cb.from_user.id, str(it.get("value") or "classic"))
+        set_active_item(cb.from_user.id, iid)
+    elif it.get("kind") == "skin_chess_pieces":
+        from app.db import set_skin_chess_pieces
+        set_skin_chess_pieces(cb.from_user.id, str(it.get("value") or "classic"))
         set_active_item(cb.from_user.id, iid)
 
     await cb.answer("✅ Активовано")

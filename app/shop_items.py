@@ -159,6 +159,82 @@ SHOP_ITEMS: list[dict] = [
         "kind": "skin_cell",
         "value": "ocean",
     },
+
+    # ============ Chess Board Skins ============
+    {
+        "item_id": "skin_chess_board:neon",
+        "title": "♛ Шахи: Neon Board",
+        "desc": "Яскрава дошка з зеленим і коричневим полем.",
+        "price": 100,
+        "game": "chess",
+        "kind": "skin_chess_board",
+        "value": "neon",
+    },
+    {
+        "item_id": "skin_chess_board:ocean",
+        "title": "♛ Шахи: Ocean Board",
+        "desc": "Морська блакить + білий, як хвилі.",
+        "price": 100,
+        "game": "chess",
+        "kind": "skin_chess_board",
+        "value": "ocean",
+    },
+    {
+        "item_id": "skin_chess_board:fire",
+        "title": "♛ Шахи: 🔥 Fire Board",
+        "desc": "Гарячий вогняний вигляд поля.",
+        "price": 120,
+        "game": "chess",
+        "kind": "skin_chess_board",
+        "value": "fire",
+    },
+    {
+        "item_id": "skin_chess_board:ice",
+        "title": "♛ Шахи: ❄️ Ice Board",
+        "desc": "Крижана холодна дошка.",
+        "price": 120,
+        "game": "chess",
+        "kind": "skin_chess_board",
+        "value": "ice",
+    },
+    {
+        "item_id": "skin_chess_board:royal",
+        "title": "♛ Шахи: 👑 Royal Board",
+        "desc": "Фіолетово-золота королівська дошка.",
+        "price": 150,
+        "game": "chess",
+        "kind": "skin_chess_board",
+        "value": "royal",
+    },
+
+    # ============ Chess Piece Skins ============
+    {
+        "item_id": "skin_chess_pieces:emoji",
+        "title": "🦄 Шахи: Emoji Pieces",
+        "desc": "Персонажі: 🤴👸🏰🧙🦄💂 замість стандартних фігур.",
+        "price": 150,
+        "game": "chess",
+        "kind": "skin_chess_pieces",
+        "value": "emoji",
+    },
+    {
+        "item_id": "skin_chess_pieces:letters",
+        "title": "🔤 Шахи: Letter Pieces",
+        "desc": "Мінімалістичні латинські літери для швидкого читання.",
+        "price": 60,
+        "game": "chess",
+        "kind": "skin_chess_pieces",
+        "value": "letters",
+    },
+    {
+        "item_id": "skin_chess_pieces:filled",
+        "title": "⬛ Шахи: Filled Pieces",
+        "desc": "Суцільні заповнені шахові фігури.",
+        "price": 80,
+        "game": "chess",
+        "kind": "skin_chess_pieces",
+        "value": "filled",
+    },
 ]
 
 def items_for_game(game: str) -> list[dict]:

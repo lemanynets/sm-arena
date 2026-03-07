@@ -40,6 +40,31 @@ def get_skin_ck(user_id: int) -> str:
     s = (u or {}).get("skin_ck") or "default"
     return str(s)
 
+def get_skin_chess(user_id: int) -> str:
+    """Returns composite chess skin string: '<pieces>:<board>'"""
+    u = get_user(user_id) or {}
+    pieces = str(u.get("skin_chess_pieces") or "classic")
+    board  = str(u.get("skin_chess_board") or "classic")
+    return f"{pieces}:{board}"
+
+def set_skin_chess_pieces(user_id: int, value: str):
+    init_db()
+    con = _con()
+    try:
+        con.execute("UPDATE users SET skin_chess_pieces=? WHERE user_id=?", (str(value), int(user_id)))
+        con.commit()
+    finally:
+        con.close()
+
+def set_skin_chess_board(user_id: int, value: str):
+    init_db()
+    con = _con()
+    try:
+        con.execute("UPDATE users SET skin_chess_board=? WHERE user_id=?", (str(value), int(user_id)))
+        con.commit()
+    finally:
+        con.close()
+
 def _ensure_user_columns(con: sqlite3.Connection):
     """Add new columns safely."""
     cols = {row[1] for row in con.execute("PRAGMA table_info(users)").fetchall()}
@@ -81,6 +106,8 @@ def _ensure_user_columns(con: sqlite3.Connection):
         "bp_claimed_free": "TEXT NOT NULL DEFAULT '[]'",
         "bp_claimed_premium": "TEXT NOT NULL DEFAULT '[]'",
         "shadowban": "INTEGER NOT NULL DEFAULT 0",
+        "skin_chess_pieces": "TEXT NOT NULL DEFAULT 'classic'",
+        "skin_chess_board": "TEXT NOT NULL DEFAULT 'classic'",
     }
     for name, ddl in wanted.items():
         if name not in cols:

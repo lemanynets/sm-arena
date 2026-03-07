@@ -31,6 +31,7 @@ from app.vip_service import vip_bonus_loop
 # Webhook server (FastAPI)
 import uvicorn
 from app.liqpay_webhook import create_app as create_liqpay_app
+from app.push_service import push_loop
 
 
 def _load_env() -> None:
@@ -110,6 +111,7 @@ async def main() -> None:
     asyncio.create_task(daily_tournament_loop(bot))
     asyncio.create_task(tournament_registrar_loop(bot))
     asyncio.create_task(vip_bonus_loop(bot))
+    asyncio.create_task(push_loop(bot))
 
     try:
         await _run_webhook_server(bot)

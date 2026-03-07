@@ -24,7 +24,7 @@ from .storage import (
 )
 from .ui import build_board_kb, render_text, unpack_sq
 
-from app.db import get_chat, get_news, get_skin, init_db, upsert_user
+from app.db import get_chat, get_news, get_skin, get_skin_chess, init_db, upsert_user
 from app.i18n import detect_lang, t
 from app.keyboards import arena_menu_kb
 
@@ -125,14 +125,14 @@ async def _edit_game_messages(cb: CallbackQuery, gs: GameSession):
     text = render_text(gs.white_name, gs.black_name, gs.board, gs.selected, gs.winner, gs.outcome_reason)
 
     if not gs.is_private:
-        skin = get_skin(cb.from_user.id)
+        skin = get_skin_chess(cb.from_user.id)
         kb = build_board_kb(gs.gid, gs.board, gs.selected, skin=skin)
         await _safe_edit(cb.message, text, reply_markup=kb)
         return
 
     bot = cb.bot
-    skin_white = get_skin(gs.white_id) if gs.white_id else "default"
-    skin_black = get_skin(gs.black_id) if gs.black_id else "default"
+    skin_white = get_skin_chess(gs.white_id) if gs.white_id else "classic:classic"
+    skin_black = get_skin_chess(gs.black_id) if gs.black_id else "classic:classic"
     kb_white = build_board_kb(gs.gid, gs.board, gs.selected, skin=skin_white)
     kb_black = build_board_kb(gs.gid, gs.board, gs.selected, skin=skin_black)
 
@@ -201,7 +201,7 @@ async def ch_ai_start(cb: CallbackQuery):
                 active.winner,
                 active.outcome_reason,
             )
-            skin = get_skin(cb.from_user.id)
+            skin = get_skin_chess(cb.from_user.id)
             kb = build_board_kb(active.gid, active.board, active.selected, skin=skin)
             m = await cb.message.answer(text, reply_markup=kb)
             active.white_chat_id = m.chat.id
@@ -228,7 +228,7 @@ async def ch_ai_start(cb: CallbackQuery):
         ai_level=level,
     )
     text = render_text(gs.white_name, gs.black_name, gs.board, gs.selected, gs.winner, gs.outcome_reason)
-    skin = get_skin(cb.from_user.id)
+    skin = get_skin_chess(cb.from_user.id)
     kb = build_board_kb(gs.gid, gs.board, gs.selected, skin=skin)
     await cb.message.edit_text(text, reply_markup=kb)
 
@@ -293,8 +293,8 @@ async def ch_pvp_search(cb: CallbackQuery):
     upsert_user(gs.black_id, None, gs.black_name, lang)
 
     text = render_text(gs.white_name, gs.black_name, gs.board, gs.selected, gs.winner, gs.outcome_reason)
-    skin_white = get_skin(gs.white_id)
-    skin_black = get_skin(gs.black_id)
+    skin_white = get_skin_chess(gs.white_id)
+    skin_black = get_skin_chess(gs.black_id)
     kb_white = build_board_kb(gs.gid, gs.board, gs.selected, skin=skin_white)
     kb_black = build_board_kb(gs.gid, gs.board, gs.selected, skin=skin_black)
 
@@ -381,7 +381,7 @@ async def join_cb(cb: CallbackQuery):
 
     gs = joined
     text = render_text(gs.white_name, gs.black_name, gs.board, gs.selected, gs.winner, gs.outcome_reason)
-    skin = get_skin(cb.from_user.id)
+    skin = get_skin_chess(cb.from_user.id)
     kb = build_board_kb(gs.gid, gs.board, gs.selected, skin=skin)
     await _safe_answer(cb, "Game started")
     await _safe_edit(cb.message, text, reply_markup=kb)
