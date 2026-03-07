@@ -94,7 +94,6 @@ def arena_menu_kb(
         [InlineKeyboardButton(text=rated_label, callback_data=rated_cb)],
         [InlineKeyboardButton(text=bot_label, callback_data=bot_cb)],
         [InlineKeyboardButton(text=t(lang, "menu_friend"), callback_data="sm:menu:friend")],
-        [InlineKeyboardButton(text=t(lang, "menu_add_group"), callback_data="sm:menu:add_group")],
 
         [
             InlineKeyboardButton(text=t(lang, "menu_quests"), callback_data="sm:menu:quests"),

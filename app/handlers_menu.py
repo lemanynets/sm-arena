@@ -897,23 +897,6 @@ async def menu_links(cb: CallbackQuery):
     await cb.answer()
 
 
-@router.callback_query(F.data == "sm:menu:add_group")
-async def menu_add_group(cb: CallbackQuery):
-    if not click_ok(cb.from_user.id):
-        await cb.answer(); return
-    lang = ensure_user(cb)
-    uname = await _get_bot_username(cb.bot)
-    url = f"https://t.me/{uname}?startgroup=true" if uname else ""
-
-    rows = []
-    if url:
-        rows.append([InlineKeyboardButton(text=t(lang,'menu_add_group'), url=url)])
-    rows.append([InlineKeyboardButton(text=t(lang,'back'), callback_data="sm:menu:home")])
-    kb = InlineKeyboardMarkup(inline_keyboard=rows)
-
-    await safe_edit_text(cb.message, t(lang,'add_group_title'), reply_markup=kb)
-    await cb.answer()
-
 
 @router.callback_query(F.data == "sm:menu:friend")
 async def menu_friend(cb: CallbackQuery):
