@@ -374,7 +374,7 @@ async def start(m: Message):
             inviter_id = int(payload[4:])
             attached = try_attach_referral(m.from_user.id, inviter_id)
             if attached:
-                await m.answer("🤝 Рефералка активована. Нагорода піде запрошувачу після 3 рейтингових ігор.")
+                await m.answer("🤝 Рефералка активована! Тобі нараховано +50 🪙. Твій запрошувач отримає 100 🪙 після того, як ти зіграєш 3 рейтингові гри.")
         except Exception:
             pass
 
@@ -504,6 +504,24 @@ async def game_choose_chess(cb: CallbackQuery):
     await safe_edit_text(
         cb.message,
         f"{t(lang,'brand_title')}\n{t(lang,'game_chess')}\n\n{t(lang,'menu_quick_hint')}",
+        reply_markup=menu_kb(lang, cb.from_user.id),
+    )
+    await cb.answer()
+
+@router.callback_query(F.data == "sm:game:nardy")
+async def game_choose_nardy(cb: CallbackQuery):
+    if not click_ok(cb.from_user.id):
+        await cb.answer()
+        return
+    init_db()
+    lang = ensure_user(cb)
+    set_active_game(cb.from_user.id, "nardy")
+
+    reset_week_if_needed(week_len_days=5, top_n=TOP_N)
+
+    await safe_edit_text(
+        cb.message,
+        f"{t(lang,'brand_title')}\n{t(lang,'game_nardy')}\n\n{t(lang,'menu_quick_hint')}",
         reply_markup=menu_kb(lang, cb.from_user.id),
     )
     await cb.answer()

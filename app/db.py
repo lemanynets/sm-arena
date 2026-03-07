@@ -1367,7 +1367,9 @@ def inc_season_games(user_id: int, game: str, win: bool = False):
 
 # ---------------- Referrals ----------------
 REF_REQUIRED_RATED_GAMES = 3
-REF_REWARD_COINS = 30
+REF_REWARD_COINS = 100  # for inviter
+REF_NEWCOMER_COINS = 50 # for newcomer
+REF_MAX_COUNT = 20      # per inviter limit
 
 def try_attach_referral(invited_id: int, inviter_id: int) -> bool:
     """Attach referral only if invited has 0 games and no referral yet."""
@@ -1384,9 +1386,16 @@ def try_attach_referral(invited_id: int, inviter_id: int) -> bool:
         r = con.execute("SELECT inviter_id FROM referrals WHERE invited_id=?", (int(invited_id),)).fetchone()
         if r:
             return False
+        # check limit
+        cnt = con.execute("SELECT COUNT(*) as c FROM referrals WHERE inviter_id=?", (int(inviter_id),)).fetchone()["c"]
+        if int(cnt) >= REF_MAX_COUNT:
+            return False
+
         con.execute("INSERT INTO referrals(inviter_id, invited_id, created_ts) VALUES(?,?,?)",
                     (int(inviter_id), int(invited_id), float(time.time())))
         con.execute("UPDATE users SET ref_count=ref_count+1 WHERE user_id=?", (int(inviter_id),))
+        # reward newcomer immediately
+        con.execute("UPDATE users SET coins=coins+? WHERE user_id=?", (int(REF_NEWCOMER_COINS), int(invited_id)))
         con.commit()
         return True
     finally:

@@ -60,10 +60,12 @@ def games_select_kb(lang: str, active_game: str = "xo") -> InlineKeyboardMarkup:
     xo_prefix = "✅ " if g == "xo" else ""
     ck_prefix = "✅ " if g == "checkers" else ""
     ch_prefix = "✅ " if g == "chess" else ""
+    nd_prefix = "✅ " if g == "nardy" else ""
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=f"{xo_prefix}{t(lang,'game_xo')}", callback_data="sm:game:xo")],
         [InlineKeyboardButton(text=f"{ck_prefix}{t(lang,'game_checkers')}", callback_data="sm:game:checkers")],
         [InlineKeyboardButton(text=f"{ch_prefix}{t(lang,'game_chess')}", callback_data="sm:game:chess")],
+        [InlineKeyboardButton(text=f"{nd_prefix}{t(lang,'game_nardy')}", callback_data="sm:game:nardy")],
     ])
 
 
@@ -83,6 +85,10 @@ def arena_menu_kb(
         rated_cb = "sm:ch:play_pvp"
         bot_cb = "sm:ch:play_ai"
         game_badge = " (Chess)"
+    elif g == "nardy":
+        rated_cb = "sm:nd:play_pvp"
+        bot_cb = "nds|ai"  # Nardy uses shorter CBS
+        game_badge = " (Nardy)"
     else:
         rated_cb = "sm:menu:play_random"
         bot_cb = "sm:menu:play_ai"
