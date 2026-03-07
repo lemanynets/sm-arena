@@ -535,24 +535,24 @@ async def menu_coins(cb: CallbackQuery):
         await cb.answer(); return
     lang = ensure_user(cb)
 
-    packs = getattr(config, "LIQPAY_COIN_PACKS", {
-        "coins_50": (50, 19),
-        "coins_200": (200, 69),
-        "coins_500": (500, 159),
-        "coins_1200": (1200, 249),
+    packs = getattr(config, "STARS_COIN_PACKS", {
+        "coins_50": (50, 25),
+        "coins_200": (200, 100),
+        "coins_500": (500, 250),
+        "coins_1200": (1200, 600),
     })
-    base = str(getattr(config, "WEBHOOK_BASE_URL", "") or "").strip()
 
     rows = []
-    for sku, (coins, price_uah) in packs.items():
-        rows.append([InlineKeyboardButton(text=f"{coins} coins - {price_uah} UAH", callback_data=f"liqpay:coins:{sku}")])
+    for sku, (coins, stars) in packs.items():
+        rows.append([InlineKeyboardButton(text=f"{coins} 🪙 за ⭐️ {stars} Stars", callback_data=f"stars:coins:{sku}")])
     rows.append([InlineKeyboardButton(text=t(lang, "back"), callback_data="sm:menu:market")])
     kb = InlineKeyboardMarkup(inline_keyboard=rows)
 
-    text = t(lang, "pay_choose_pack")
-    if not base:
-        text += f"\n\n{t(lang, 'pay_webhook_warning')}"
-    await safe_edit_text(cb.message, text, reply_markup=kb)
+    text = "💳 <b>Купівля Монет</b>\nОплачуй швидко і безпечно прямо в Telegram зірками (Stars)! 👇"
+    if lang == "en":
+        text = "💳 <b>Buy Coins</b>\nPay quickly and securely right in Telegram using Stars! 👇"
+        
+    await safe_edit_text(cb.message, text, reply_markup=kb, parse_mode="HTML")
     await cb.answer()
 
 # =========================
