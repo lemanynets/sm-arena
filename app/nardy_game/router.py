@@ -53,7 +53,12 @@ async def nardy_start_cb(cb: CallbackQuery):
     uname = _safe_name(cb.from_user)
 
     init_db()
-    upsert_user(uid, uname, cb.from_user.username or "")
+    lang = "uk"
+    try:
+        lang = detect_lang(cb)
+    except Exception:
+        pass
+    upsert_user(uid, cb.from_user.username, cb.from_user.first_name, lang)
 
     gid = str(uuid.uuid4())[:8]
     gs = new_game(gid, uid, uname, vs_ai=(mode == "ai"),
