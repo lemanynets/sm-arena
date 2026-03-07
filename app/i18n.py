@@ -8,9 +8,9 @@ TEXTS = {
         "choose": "Обери режим гри:",
         "choose_ai": "🤖 Обери рівень AI:",
         "your_move": "твій хід",
-        "choose_game": "Обери гру:",
-        "choose_game_hint": "Choose a game. You can switch anytime from the menu.",
-        "menu_quick_hint": "Quick start: Rated match or Play vs bot.",
+        "choose_game": "🎮 Обери гру:",
+        "choose_game_hint": "Обери гру нижче. Ти можеш перемикати їх у будь-який момент через меню. 👇",
+        "menu_quick_hint": "🚀 Швидкий старт: Шукай суперника або тренуйся з ботом.",
         "game_xo": "❌⭕ Хрестики-нулики",
         "game_checkers": "♟️ Шашки",
         "game_chess": "♞ Шахи",
@@ -97,18 +97,18 @@ TEXTS = {
         "ch_menu_pvp": "Пошук PvP у шахах",
         "ch_searching": "Шукаємо суперника для шахів...",
         "ch_cancel_search": "Скасувати пошук",
-        "pay_enabled": "LiqPay payments are enabled. Use /coins or /vip",
-        "pay_choose_pack": "Choose a coins pack:",
-        "pay_webhook_warning": "Set WEBHOOK_BASE_URL in .env to enable payment buttons.",
-        "pay_btn": "Pay with LiqPay",
-        "pay_unknown_pack": "Unknown coins pack",
-        "pay_missing_webhook": "WEBHOOK_BASE_URL is missing in .env",
-        "pay_pack_summary": "Pack: {coins} coins for {price} UAH",
-        "pay_press_button": "Press the button below to continue payment.",
-        "pay_vip_title": "VIP for {days} days",
-        "pay_vip_price": "Price: {price} UAH",
-        "pay_success_coins": "Payment successful. Coins were credited.",
-        "pay_success_vip": "Payment successful. VIP activated for {days} days.",
+        "pay_enabled": "Оплата увімкнена. Використовуй /coins або /vip",
+        "pay_choose_pack": "💳 Обери пакет монет:",
+        "pay_webhook_warning": "Встанови WEBHOOK_BASE_URL в .env для активації кнопок.",
+        "pay_btn": "💸 Оплатити",
+        "pay_unknown_pack": "Невідомий пакет",
+        "pay_missing_webhook": "Помилка конфігурації: WEBHOOK_BASE_URL відсутній.",
+        "pay_pack_summary": "📦 Пакет: {coins} 🪙 за {price} грн",
+        "pay_press_button": "Натисни кнопку нижче для оплати 👇",
+        "pay_vip_title": "💎 VIP статус на {days} днів",
+        "pay_vip_price": "Ціна: {price} грн",
+        "pay_success_coins": "✅ Оплату успішно завершено! Монети зараховано на баланс.",
+        "pay_success_vip": "✅ Оплату успішно завершено! VIP активовано на {days} днів.",
 
         # common buttons
         "back": "⬅️ Назад",
@@ -130,11 +130,11 @@ TEXTS = {
         "profile_total": "Всього перемог",
         "profile_week": "За тиждень",
 
-        "top_title": "🏆 Weekly TOP",
-        "top_empty": "Поки що немає активних гравців",
-        "prize_pool": "Призовий фонд",
-        "week_started": "Початок тижня",
-        "rating_now": "Рейтинг: {r}",
+        "top_title": "🏆 Топ Тижня",
+        "top_empty": "Поки що немає активних гравців. Займай перше місце! 🥇",
+        "prize_pool": "🎁 Призовий фонд",
+        "week_started": "📅 Початок тижня",
+        "rating_now": "Твій рейтинг: ⭐️ {r}",
 
         # vip
         "vip_title": "💎 VIP",
@@ -765,12 +765,12 @@ TEXTS = {
 
 def t(lang: str, key: str) -> str:
     if lang not in TEXTS:
-        lang = "en"
-    return TEXTS[lang].get(key, TEXTS["en"].get(key, key))
+        lang = "uk"
+    return TEXTS[lang].get(key, TEXTS["uk"].get(key, key))
 
 def detect_lang(tg_lang: str | object | None) -> str:
     if tg_lang is None:
-        return "en"
+        return "uk"
     if not isinstance(tg_lang, str):
         # Support Message/CallbackQuery/etc where language code is nested in from_user.
         nested = getattr(tg_lang, "language_code", None)
@@ -778,10 +778,10 @@ def detect_lang(tg_lang: str | object | None) -> str:
             nested = getattr(getattr(tg_lang, "from_user", None), "language_code", None)
         tg_lang = nested or ""
     if not tg_lang:
-        return "en"
-    tg = tg_lang.lower()
-    if tg.startswith("uk") or tg.startswith("ru"):
         return "uk"
+    tg = tg_lang.lower()
+    if tg.startswith("en"):
+        return "en"
     if tg.startswith("cs"):
         return "cs"
     if tg.startswith("de"):
@@ -798,4 +798,4 @@ def detect_lang(tg_lang: str | object | None) -> str:
         return "es"
     if tg.startswith("fr"):
         return "fr"
-    return "en"
+    return "uk"
