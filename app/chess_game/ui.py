@@ -11,9 +11,9 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 # Piece Style Variants
 # ---------------------------------------------------------------------------
 _PIECES_CLASSIC = {  # Unicode outline pieces (default)
-    "P": "♙", "p": "♟︎",
-    "N": "♘︎", "B": "♗︎", "R": "♖︎", "Q": "♕︎", "K": "♔︎",
-    "n": "♞︎", "b": "♝︎", "r": "♜︎", "q": "♛︎", "k": "♚︎",
+    "P": "♙", "p": "♟",
+    "N": "♘", "B": "♗", "R": "♖", "Q": "♕", "K": "♔",
+    "n": "♞", "b": "♝", "r": "♜", "q": "♛", "k": "♚",
 }
 
 _PIECES_EMOJI = {  # Fun emoji characters
@@ -45,12 +45,13 @@ PIECE_STYLES: dict[str, dict] = {
 # Board / Cell Style Variants  (light_square, dark_square)
 # ---------------------------------------------------------------------------
 BOARD_STYLES: dict[str, tuple[str, str]] = {
-    "classic": ("⬜", "⬛"),
-    "neon":    ("🟩", "🟫"),
-    "ocean":   ("🟦", "⬜"),
-    "fire":    ("🟧", "🟥"),
-    "ice":     ("🔵", "⬜"),
-    "royal":   ("🟨", "🟪"),
+    "classic": ("▫️", "▪️"),
+    "neon":    ("🟢", "🟤"),
+    "ocean":   ("🌊", "🌑"),
+    "fire":    ("🔥", "🌑"),
+    "ice":     ("❄️", "🌑"),
+    "royal":   ("ㅤ", "ㅤ"),      # Invisible background (clean look)
+    "clear":   ("ㅤ", "ㅤ"),      # Added explicitly for those wanting a completely empty board
 }
 
 # Highlight overlays (selected / legal move target)
