@@ -10,6 +10,7 @@ load_dotenv(_ENV_PATH)  # Load from .env if exists
 # Diagnostic print (safe: keys only)
 print(f"--- Environment Diagnosis ---", file=sys.stderr)
 print(f"CWD: {os.getcwd()}", file=sys.stderr)
+print(f"Railway Info: Service={os.getenv('RAILWAY_SERVICE_NAME')}, Env={os.getenv('RAILWAY_ENVIRONMENT_NAME')}", file=sys.stderr)
 print(f"All ENV keys: {sorted(list(os.environ.keys()))}", file=sys.stderr)
 print(f"Is .env exists? {_ENV_PATH.exists()} at {_ENV_PATH}", file=sys.stderr)
 print(f"----------------------------", file=sys.stderr)
