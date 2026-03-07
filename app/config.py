@@ -49,10 +49,10 @@ if not BOT_TOKEN:
         f"BOT_TOKEN is not set. Keys found: {[k for k in os.environ.keys() if 'TOKEN' in k]}"
     )
 
-# đź‘‘ ĐĐ”ĐśĐ†ĐťĐ
-# ĐśĐľĐ¶Đ˝Đ° ĐżĐµŃ€ĐµĐ˛Đ¸Đ·Đ˝Đ°Ń‡Đ¸Ń‚Đ¸ Ń‡ĐµŃ€ĐµĐ· .env: ADMIN_IDS=123,456
+# 👑 АДМІНИ
+# Можна перевизначити через .env: ADMIN_IDS=123,456
 ADMIN_IDS = [
-    8148164304,  # Đ’ŃŹŃ‡ĐµŃĐ»Đ°Đ˛
+    8148164304,  # Вячеслав
 ]
 _admin_env = _env("ADMIN_IDS", "").strip()
 if _admin_env:
@@ -63,14 +63,14 @@ if _admin_env:
 
 # ================== GAME / UI ==================
 # ================== LINKS ==================
-DEFAULT_NEWS_TITLE = "ĐťĐľĐ˛Đ¸Đ˝Đ¸"
+DEFAULT_NEWS_TITLE = "Новини"
 DEFAULT_NEWS_URL = "https://t.me/sm_arena"
-DEFAULT_CHAT_TITLE = "Đ§Đ°Ń‚Đ¸Đş"
+DEFAULT_CHAT_TITLE = "Чатик"
 DEFAULT_CHAT_URL = "https://t.me/SM_Arena_chat"
 
 DEFAULT_SKIN = "default"
 
-# ĐšĐ»ŃŽŃ‡Ń– ĐĽĐ°ŃŽŃ‚ŃŚ Đ·Đ±Ń–ĐłĐ°Ń‚Đ¸ŃŃŹ Đ· Ń‚Đ¸ĐĽ, Ń‰Đľ ĐżŃ–Đ´Ń‚Ń€Đ¸ĐĽŃŃ” keyboards.py (_theme)
+# Ключі мають збігатися з тими, що підтримує keyboards.py (_theme)
 SKINS = [
     ("default", "Classic"),
     ("3d", "3D"),
@@ -143,10 +143,10 @@ DAILY_TOURNAMENT_HOUR = 20  # 20:00
 DAILY_TOURNAMENT_MINUTE = 0
 TOURN_REG_MINUTES = 10
 TOURN_DAILY_SIZE = 8
-TOURN_ENTRY_FEE = 20  # đźŞ™
-TOURN_TICKET_PRICE = 20  # đźŽ« ĐşĐ˛Đ¸Ń‚ĐľĐş Đ˝Đ° Đ˛Ń…Ń–Đ´ (Đ·Đ° Đ·Đ°ĐĽĐľĐ˛Ń‡ŃĐ˛Đ°Đ˝Đ˝ŃŹĐĽ = entry fee)
-TOURN_REMIND_2M_SEC = 120  # Đ˝Đ°ĐłĐ°Đ´ŃĐ˛Đ°Đ˝Đ˝ŃŹ Đ·Đ° 2 Ń…Đ˛ Đ´Đľ ĐşŃ–Đ˝Ń†ŃŹ Ń€ĐµŃ”ŃŃ‚Ń€Đ°Ń†Ń–Ń—
-TOURN_REMIND_30S_SEC = 30   # Đ˝Đ°ĐłĐ°Đ´ŃĐ˛Đ°Đ˝Đ˝ŃŹ Đ·Đ° 30 ŃĐµĐş Đ´Đľ ĐşŃ–Đ˝Ń†ŃŹ Ń€ĐµŃ”ŃŃ‚Ń€Đ°Ń†Ń–Ń—
+TOURN_ENTRY_FEE = 20  # 🪙
+TOURN_TICKET_PRICE = 20  # 🎫 квиток на вхід (за замовчуванням = entry fee)
+TOURN_REMIND_2M_SEC = 120  # нагадування за 2 хв до кінця реєстрації
+TOURN_REMIND_30S_SEC = 30   # нагадування за 30 сек до кінця реєстрації
 TOURN_PAYOUT_WINNER_PCT = 70
 TOURN_PAYOUT_RUNNER_PCT = 30
 TOURN_POINTS_JOIN = 10
@@ -157,7 +157,7 @@ TOURN_TECH_LOSS_SEC = 60  # anti-afk in tournament matches
 TOURN_STREAK_TARGET = 3
 TOURN_STREAK_BONUS_COINS = 30
 
-ARENA_FEE_PCT = 10  # % ĐşĐľĐĽŃ–ŃŃ–ŃŹ Đ°Ń€ĐµĐ˝Đ¸ Đ· ĐżŃ€Đ¸Đ·ĐľĐ˛ĐľĐłĐľ Ń„ĐľĐ˝Đ´Ń
+ARENA_FEE_PCT = 10  # % комісія арени з призового фонду
 VIP_DAILY_COINS = 10
 VIP_WEEKLY_PACK_ENABLED = True
 VIP_WEEKLY_PACK_FALLBACK_COINS = 30
@@ -170,7 +170,7 @@ DONATE_AMOUNTS = [10, 25, 50, 100]
 LIQPAY_PUBLIC_KEY = _env("LIQPAY_PUBLIC_KEY", "")
 LIQPAY_PRIVATE_KEY = _env("LIQPAY_PRIVATE_KEY", "")
 
-# ĐŁĐ°Đ»Đ°ŃˆŃ‚ŃĐ˛Đ°Đ˝Đ˝ŃŹ Webhook / FastAPI (ĐąĐ°ĐłĐ°Ń‚Đľ ĐżĐ»Đ°Ń‚Ń„ĐľŃ€ĐĽ ŃŹĐş Railway Đ´Đ°ŃŽŃ‚ŃŚ ĐżĐľŃ€Ń‚ Ń‡ĐµŃ€ĐµĐ· Đ·ĐĽŃ–Đ˝Đ˝Ń PORT)
+# Налаштування Webhook / FastAPI (багато платформ як Railway дають порт через змінну PORT)
 WEBHOOK_HOST = _env("WEBHOOK_HOST", "0.0.0.0")
 WEBHOOK_PORT = int(os.environ.get("PORT") or _env("WEBHOOK_PORT", "8080"))
 WEBHOOK_BASE_URL = _env("WEBHOOK_BASE_URL", "").rstrip("/")
