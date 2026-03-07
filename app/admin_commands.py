@@ -271,9 +271,14 @@ async def cmd_broadcast(m: Message):
     if not m.from_user or not is_admin(m.from_user.id):
         return
 
+    source = m.reply_to_message if m.reply_to_message else None
     text = (m.text or "").replace("/broadcast", "", 1).strip()
-    if not text:
-        await m.answer("Usage: /broadcast [message text]")
+
+    if not source and not text:
+        await m.answer("📢 <b>Як користуватися розсилкою:</b>\n\n"
+                       "1. Відправ текст: <code>/broadcast Привіт усім!</code>\n"
+                       "2. АБО перешли сюди будь-яке повідомлення (фото, відео, пост) і напиши у відповідь <code>/broadcast</code>\n\n"
+                       "<i>Підтримується HTML розмітка.</i>", parse_mode="HTML")
         return
 
     init_db()
@@ -281,17 +286,26 @@ async def cmd_broadcast(m: Message):
     ok = 0
     fail = 0
 
-    # Telegram can rate-limit; go gentle.
-    for uid in uids:
+    progress = await m.answer(f"⏳ Починаю розсилку на {len(uids)} користувачів...")
+
+    for i, uid in enumerate(uids):
         try:
-            await m.bot.send_message(uid, text)
+            if source:
+                await source.copy_to(chat_id=uid)
+            else:
+                await m.bot.send_message(uid, text, parse_mode="HTML")
             ok += 1
-            await asyncio.sleep(0.03)
         except Exception:
             fail += 1
-            await asyncio.sleep(0.03)
+        
+        if (i + 1) % 30 == 0:
+            try:
+                await progress.edit_text(f"⏳ Розсилка... {i+1}/{len(uids)}\n✅ Ок: {ok}\n❌ Помилок: {fail}")
+            except Exception: pass
+        
+        await asyncio.sleep(0.04)
 
-    await m.answer(f"📣 Broadcast done. OK={ok}, FAIL={fail}, TOTAL={len(uids)}")
+    await progress.edit_text(f"📣 <b>Розсилка завершена!</b>\n\n✅ Отримали: {ok}\n❌ Не отримали: {fail}\n👥 Всього: {len(uids)}", parse_mode="HTML")
 
 
 @router.message(Command("stats"))

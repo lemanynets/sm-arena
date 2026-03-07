@@ -109,6 +109,7 @@ def _ensure_user_columns(con: sqlite3.Connection):
         "shadowban": "INTEGER NOT NULL DEFAULT 0",
         "skin_chess_pieces": "TEXT NOT NULL DEFAULT 'classic'",
         "skin_chess_board": "TEXT NOT NULL DEFAULT 'classic'",
+        "last_promo_msg_ts": "REAL NOT NULL DEFAULT 0",
     }
     for name, ddl in wanted.items():
         if name not in cols:
@@ -2465,3 +2466,23 @@ def is_shadowbanned(user_id: int) -> bool:
     u = get_user(user_id)
     if not u: return False
     return bool(u.get("shadowban", 0))
+
+# --- Marketing Engine Helpers ---
+def set_last_promo_msg_ts(user_id: int, ts: float) -> None:
+    init_db()
+    con = _con()
+    try:
+        con.execute("UPDATE users SET last_promo_msg_ts=? WHERE user_id=?", (ts, int(user_id)))
+        con.commit()
+    finally:
+        con.close()
+
+def get_marketing_candidates() -> list[dict]:
+    """Returns all users to check for marketing events."""
+    init_db()
+    con = _con()
+    try:
+        con.row_factory = sqlite3.Row
+        return [dict(r) for r in con.execute("SELECT * FROM users").fetchall()]
+    finally:
+        con.close()

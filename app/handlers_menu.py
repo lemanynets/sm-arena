@@ -2240,7 +2240,9 @@ async def ref_home(cb: CallbackQuery):
         + t(lang,'ref_stats').format(n=st['ref_count'], c=st['ref_earned'])
         + f"\n\n{t(lang,'ref_rules')}"
     )
+    share_url = f"https://t.me/share/url?url={link}&text=" + t(lang, 'ref_share_text')
     kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🚀 Запросити друзів (Поділитись)", url=share_url)],
         [InlineKeyboardButton(text="🏆 Топ рефоводів", callback_data="sm:ref:top")],
         [InlineKeyboardButton(text="⬅️", callback_data="sm:menu:home")],
     ])

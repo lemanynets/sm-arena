@@ -48,6 +48,7 @@ TEXTS = {
         "ref_link": "Твій реф-лінк:",
         "ref_stats": "Запрошено: {n}\nЗароблено: {c} 🪙",
         "ref_rules": "Правило: ти отримуєш 50 🪙 відразу, а твій запрошувач 100 🪙 після того, як ти зіграєш 3 рейтингові гри. Ліміт: 20 друзів.",
+        "ref_share_text": "\nПриходь грати зі мною в SM Arena! Отримай 50 монет за реєстрацію! 🎁",
 
         "menu_switch_game": "🔄 Змінити гру",
         "settings_title": "⚙ Налаштування",
@@ -200,6 +201,7 @@ TEXTS = {
         "ref_link": "Your referral link:",
         "ref_stats": "Invited: {n}\nEarned: {c} 🪙",
         "ref_rules": "Rule: you get 50 🪙 instantly, and your inviter gets 100 🪙 after you play 3 rated games. Limit: 20 friends.",
+        "ref_share_text": "\nCome play with me in SM Arena! Get 50 coins as a bonus! 🎁",
 
         "menu_switch_game": "🔄 Switch game",
         "settings_title": "⚙ Settings",
