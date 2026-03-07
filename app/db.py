@@ -7,7 +7,8 @@ from pathlib import Path
 from datetime import datetime, timezone, timedelta
 import time
 
-_DEFAULT_DB_PATH = Path(__file__).resolve().parent / "sm_arena.db"
+_DIR = os.getenv("RAILWAY_VOLUME_MOUNT_PATH", str(Path(__file__).resolve().parent))
+_DEFAULT_DB_PATH = Path(_DIR) / "sm_arena.db"
 DB_PATH = Path(os.getenv("DB_PATH", str(_DEFAULT_DB_PATH)))
 
 DEFAULT_RATING = 1000

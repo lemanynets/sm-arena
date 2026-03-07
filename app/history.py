@@ -1,10 +1,14 @@
 # app/history.py
 import json
 import sqlite3
+import os
 from pathlib import Path
 from datetime import datetime, timezone
+from typing import Optional
 
-DB_PATH = Path(__file__).resolve().parent / "sm_arena.db"
+# To cleanly separate concern, history uses the same or separate DB.
+_DIR = os.getenv("RAILWAY_VOLUME_MOUNT_PATH", str(Path(__file__).resolve().parent))
+DB_PATH = Path(_DIR) / "sm_arena.db"
 
 def _con():
     con = sqlite3.connect(DB_PATH)
