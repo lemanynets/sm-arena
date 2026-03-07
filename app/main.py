@@ -23,7 +23,6 @@ from app.admin_commands import router as admin_router
 from app.admin_stats_router import router as admin_stats_router
 from app.checkers_game.router import router as checkers_router
 from app.chess_game.router import router as chess_router
-from app.nardy_game.router import router as nardy_router
 
 # Background loops
 from app.tournament_service import daily_tournament_loop, tournament_registrar_loop
@@ -102,7 +101,6 @@ async def main() -> None:
     dp.include_router(menu_router)
     dp.include_router(checkers_router)
     dp.include_router(chess_router)
-    dp.include_router(nardy_router)
     dp.include_router(liqpay_payments_router)
     dp.include_router(stars_payments_router)
     dp.include_router(admin_router)

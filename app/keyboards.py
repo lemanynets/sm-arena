@@ -85,10 +85,6 @@ def arena_menu_kb(
         rated_cb = "sm:ch:play_pvp"
         bot_cb = "sm:ch:play_ai"
         game_badge = " (Chess)"
-    elif g == "nardy":
-        rated_cb = "sm:nd:play_pvp"
-        bot_cb = "nds|ai"  # Nardy uses shorter CBS
-        game_badge = " (Nardy)"
     else:
         rated_cb = "sm:menu:play_random"
         bot_cb = "sm:menu:play_ai"
