@@ -383,6 +383,12 @@ async def start(m: Message):
         await _handle_invite_start(m, token, lang)
         return
 
+    # Delete the /start command to keep chat clean
+    try:
+        await m.delete()
+    except Exception:
+        pass
+
     active = get_active_game(m.from_user.id)
     await m.answer(
         f"{t(lang,'brand_title')}\n{t(lang,'choose_game')}\n\n{t(lang,'choose_game_hint')}",
