@@ -362,7 +362,7 @@ def _game_suffix(game: str) -> str:
     if g in ("checkers", "ck", "shashky", "шашки"):
         return "_ck"
     # Chess currently reuses XO counters/ratings as safe fallback in shared flows.
-    if g in ("chess", "ch", "шахи", "шахматы"):
+    if g in ("chess", "ch", "шахи", "шахматы", "nardy", "nd", "нарди", "нарды"):
         return ""
     raise ValueError("Unknown game")
 
@@ -375,7 +375,7 @@ def _norm_game(game: str) -> str:
 def get_active_game(user_id: int) -> str:
     u = get_user(user_id) or {}
     g = (u.get("active_game") or "xo").strip().lower()
-    return g if g in ("xo", "checkers", "chess") else "xo"
+    return g if g in ("xo", "checkers", "chess", "nardy") else "xo"
 
 
 def set_active_game(user_id: int, game: str):
@@ -387,9 +387,9 @@ def set_active_game(user_id: int, game: str):
             g = "checkers"
         elif g in ("ch", "шахи", "шахматы"):
             g = "chess"
-        elif g in ("tic", "tictactoe"):
-            g = "xo"
-        if g not in ("xo", "checkers", "chess"):
+        elif g in ("nd", "нарди", "нарды"):
+            g = "nardy"
+        if g not in ("xo", "checkers", "chess", "nardy"):
             g = "xo"
         game_norm = g
         con.execute("UPDATE users SET active_game=? WHERE user_id=?", (game_norm, int(user_id)))

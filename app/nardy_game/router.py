@@ -42,39 +42,9 @@ async def _safe_answer(cb: CallbackQuery, text: str | None = None, show_alert: b
         pass
 
 
-def _nardy_menu(lang: str):
-    """Fallback keyboard for when game not found — reuse checkers pattern."""
-    from aiogram.utils.keyboard import InlineKeyboardBuilder
-    from aiogram.types import InlineKeyboardButton
-    kb = InlineKeyboardBuilder()
-    kb.row(InlineKeyboardButton(text="🎲 vs AI", callback_data="nds|ai"))
-    kb.row(InlineKeyboardButton(text="⬅️ Меню", callback_data="sm:main"))
-    return kb.as_markup()
-
-
 # ---------------------------------------------------------------------------
-# Start game (from menu button callback sm:game:nardy or nds|ai / nds|pvp)
+# Start game (from callback nds|ai / nds|pvp)
 # ---------------------------------------------------------------------------
-
-@router.callback_query(F.data == "sm:game:nardy")
-async def nardy_menu_cb(cb: CallbackQuery):
-    from aiogram.utils.keyboard import InlineKeyboardBuilder
-    from aiogram.types import InlineKeyboardButton
-
-    lang = "uk"
-    try:
-        lang = detect_lang(cb)
-    except Exception:
-        pass
-
-    kb = InlineKeyboardBuilder()
-    kb.row(InlineKeyboardButton(text="🤖 vs AI", callback_data="nds|ai"))
-    kb.row(InlineKeyboardButton(text="⬅️ Меню", callback_data="sm:main"))
-    await _safe_answer(cb)
-    await _safe_edit(cb.message,
-                     "🎲 <b>Нарди (Короткі)</b>\n\nОберіть режим гри:",
-                     reply_markup=kb.as_markup())
-
 
 @router.callback_query(F.data.startswith("nds|"))
 async def nardy_start_cb(cb: CallbackQuery):
