@@ -177,3 +177,4 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
+# Deployment trigger: restart service
