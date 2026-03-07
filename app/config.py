@@ -1,20 +1,33 @@
-﻿# app/config.py
+# app/config.py
 import os
+import sys
 from pathlib import Path
+from dotenv import load_dotenv
 
 _ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(_ENV_PATH)  # Load from .env if exists
 
+# Diagnostic print (safe: keys only)
+print(f"--- Environment Diagnosis ---", file=sys.stderr)
+print(f"CWD: {os.getcwd()}", file=sys.stderr)
+print(f"Available ENV keys: {[k for k in os.environ.keys() if 'TOKEN' in k or 'URL' in k or 'PORT' in k]}", file=sys.stderr)
+print(f"----------------------------", file=sys.stderr)
 
 def _read_env_file() -> dict[str, str]:
+    # Keeping this for backward compatibility if needed, 
+    # though load_dotenv handles it now.
     vals: dict[str, str] = {}
     if not _ENV_PATH.exists():
         return vals
-    for line in _ENV_PATH.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        k, v = line.split("=", 1)
-        vals[k.strip()] = v.strip().strip('"').strip("'")
+    try:
+        for line in _ENV_PATH.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            vals[k.strip()] = v.strip().strip('"').strip("'")
+    except Exception:
+        pass
     return vals
 
 
@@ -35,8 +48,12 @@ def _env(name: str, default: str = "") -> str:
 BOT_TOKEN = _env("BOT_TOKEN", "").strip()
 
 if not BOT_TOKEN:
+    # Try one more fallback directly from os.environ
+    BOT_TOKEN = os.environ.get("BOT_TOKEN", "").strip()
+
+if not BOT_TOKEN:
     raise RuntimeError(
-        "âťŚ BOT_TOKEN is not set. Set environment variable BOT_TOKEN or put BOT_TOKEN=... into .env in project root."
+        f"BOT_TOKEN is not set. Keys found: {[k for k in os.environ.keys() if 'TOKEN' in k]}"
     )
 
 # đź‘‘ ĐĐ”ĐśĐ†ĐťĐ
