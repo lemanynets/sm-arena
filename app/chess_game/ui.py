@@ -45,19 +45,19 @@ PIECE_STYLES: dict[str, dict] = {
 # Board / Cell Style Variants  (light_square, dark_square)
 # ---------------------------------------------------------------------------
 BOARD_STYLES: dict[str, tuple[str, str]] = {
-    "classic": ("▫️", "▪️"),
+    "classic": ("⠀", "⠀"),
     "neon":    ("🟢", "🟤"),
     "ocean":   ("🌊", "🌑"),
     "fire":    ("🔥", "🌑"),
     "ice":     ("❄️", "🌑"),
-    "royal":   ("ㅤ", "ㅤ"),      # Invisible background (clean look)
-    "clear":   ("ㅤ", "ㅤ"),      # Added explicitly for those wanting a completely empty board
+    "royal":   ("⠀", "⠀"),      # Invisible background (clean look)
+    "clear":   ("⠀", "⠀"),      # Added explicitly for those wanting a completely empty board
 }
 
 # Highlight overlays (selected / legal move target)
-_HL_SELECTED = "✦"
-_HL_MOVE     = "·"
-_HL_CAPTURE  = "✖"
+_HL_SELECTED = "🟡"
+_HL_MOVE     = "🟢"
+_HL_CAPTURE  = "❌"
 
 # ---------------------------------------------------------------------------
 # Helpers
