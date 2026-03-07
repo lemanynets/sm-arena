@@ -77,24 +77,21 @@ async def coins_menu(msg: Message):
     lang = _lang(msg)
     packs = getattr(
         config,
-        "LIQPAY_COIN_PACKS",
+        "STARS_COIN_PACKS",
         {
-            "coins_50": (50, 19),
-            "coins_200": (200, 69),
-            "coins_500": (500, 159),
-            "coins_1200": (1200, 249),
+            "coins_50": (50, 25),
+            "coins_200": (200, 100),
+            "coins_500": (500, 250),
+            "coins_1200": (1200, 600),
         },
     )
-    base = _base_url()
 
     kb = InlineKeyboardBuilder()
-    for sku, (coins, price_uah) in packs.items():
-        kb.button(text=f"{coins} coins - {price_uah} UAH", callback_data=f"liqpay:coins:{sku}")
+    for sku, (coins, price_stars) in packs.items():
+        kb.button(text=f"{coins} coins - ⭐️ {price_stars}", callback_data=f"stars:coins:{sku}")
     kb.adjust(1)
 
     text = t(lang, "pay_choose_pack")
-    if not base:
-        text += f"\n\n{t(lang, 'pay_webhook_warning')}"
     await msg.answer(text, reply_markup=kb.as_markup())
 
 

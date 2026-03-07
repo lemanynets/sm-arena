@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 from aiogram import Router, F, Bot
@@ -20,7 +20,9 @@ from .ai import choose_turn
 
 from app.i18n import t
 from app.keyboards import arena_menu_kb
-from app.db import init_db, upsert_user, bump_total, bump_weekly, get_rating, set_rating, get_skin_ck, get_chat, get_news
+from app.db import init_db, upsert_user, bump_total, bump_weekly, get_rating, set_rating, get_skin_ck, get_chat, get_news, add_bp_xp, is_shadowbanned, is_rated_pair_game, record_pair_game
+from app.config import ANTI_BOOST_WINDOW_HOURS, ANTI_BOOST_MAX_RATED
+ANTI_BOOST_WINDOW_SEC = ANTI_BOOST_WINDOW_HOURS * 3600
 
 # update_elo is optional (exists in Ń‚Đ˛ĐľŃ”ĐĽŃ ĐżŃ€ĐľĐµĐşŃ‚Ń– Đ´Đ»ŃŹ XO)
 try:
@@ -422,11 +424,22 @@ def _finish_and_score(gs):
         red_win = (gs.winner == RED)
         blue_win = (gs.winner == BLUE)
 
+        sb_r = is_shadowbanned(gs.red_id)
+        sb_b = is_shadowbanned(gs.blue_id)
+        rated = is_rated_pair_game(gs.red_id, gs.blue_id, ANTI_BOOST_WINDOW_SEC, ANTI_BOOST_MAX_RATED, game="checkers")
+
         # counters
-        bump_total(gs.red_id, win=red_win, game="checkers")
-        bump_total(gs.blue_id, win=blue_win, game="checkers")
-        bump_weekly(gs.red_id, win=red_win, game="checkers")
-        bump_weekly(gs.blue_id, win=blue_win, game="checkers")
+        if not sb_r:
+            bump_total(gs.red_id, win=red_win, game="checkers")
+            bump_weekly(gs.red_id, win=red_win, game="checkers")
+            if rated:
+                add_bp_xp(gs.red_id, 20 if red_win else 10)
+
+        if not sb_b:
+            bump_total(gs.blue_id, win=blue_win, game="checkers")
+            bump_weekly(gs.blue_id, win=blue_win, game="checkers")
+            if rated:
+                add_bp_xp(gs.blue_id, 20 if blue_win else 10)
 
         # Elo
         try:
@@ -444,8 +457,10 @@ def _finish_and_score(gs):
                 nr = int(round(rx + k * (score_red - ea)))
                 nb = int(round(rb + k * ((1.0 - score_red) - (1.0 - ea))))
 
-            set_rating(gs.red_id, nr, game="checkers")
-            set_rating(gs.blue_id, nb, game="checkers")
+            if rated:
+                if not sb_r: set_rating(gs.red_id, nr, game="checkers")
+                if not sb_b: set_rating(gs.blue_id, nb, game="checkers")
+                record_pair_game(gs.red_id, gs.blue_id, ANTI_BOOST_WINDOW_SEC, game="checkers")
         except Exception:
             pass
 

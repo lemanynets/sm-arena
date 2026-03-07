@@ -76,6 +76,14 @@ from app.db import (
     get_news,
     set_skin_ck,
     get_skin_ck,
+    set_skin_board,
+    get_skin_board,
+    set_skin_cell,
+    get_skin_cell,
+    set_skin_board_ck,
+    get_skin_board_ck,
+    set_skin_cell_ck,
+    get_skin_cell_ck,
     get_coins,
     add_coins,
     get_quest_mask,
@@ -102,6 +110,8 @@ from app.db import (
     get_season_rating,
     set_season_rating,
     inc_season_games,
+    add_bp_xp,
+    is_shadowbanned,
     try_pay_referral_reward,
     try_attach_referral,
     get_ref_stats,
@@ -501,7 +511,11 @@ async def menu_market(cb: CallbackQuery):
     if not click_ok(cb.from_user.id):
         await cb.answer(); return
     lang = ensure_user(cb)
-    await safe_edit_text(cb.message, f"{t(lang,'market_title')}", reply_markup=market_menu_kb(lang))
+    try:
+        from app.main import _TMA_URL as _tma_url
+    except Exception:
+        _tma_url = ""
+    await safe_edit_text(cb.message, f"{t(lang,'market_title')}", reply_markup=market_menu_kb(lang, tma_url=_tma_url))
     await cb.answer()
 
 @router.callback_query(F.data == "sm:menu:coins")
@@ -612,23 +626,25 @@ async def market_item(cb: CallbackQuery):
     g = get_active_game(cb.from_user.id)
     coins = get_coins(cb.from_user.id)
     owned = has_item(cb.from_user.id, iid)
+    if it.get("kind") == "lootbox":
+        owned = False  # Lootboxes are never "owned", you just open them
 
     item_game = (it.get("game") or "xo").lower()
     cur_skin = get_skin_ck(cb.from_user.id) if item_game == "checkers" else get_skin(cb.from_user.id)
 
     lines = [
-        f"🛍 <b>{it['title']}</b>",
-        f"🎮 Гра: <b>{_game_title(lang, it.get('game'))}</b>",
-        f"💰 Баланс: <b>{coins}</b> 🪙",
-        "",
+        f"🛍 <b>{it.get('title')}</b>",
         f"{it.get('desc','')}",
         "",
-        f"Ціна: <b>{int(it.get('price',0))}</b> 🪙",
+        f"💰 Баланс: <b>{coins}</b> 🪙"
     ]
+
     if owned:
         lines.append("Статус: ✅ <b>куплено</b>")
         if (it.get("kind") == "skin") and (str(it.get("value")) == str(cur_skin)):
             lines.append("Активовано: ✅")
+    elif it.get("kind") == "lootbox":
+        lines.append(f"Ціна відкриття: <b>{int(it.get('price',0))}</b> 🪙")
     else:
         lines.append("Статус: ⛔ <b>не куплено</b>")
 
@@ -636,7 +652,8 @@ async def market_item(cb: CallbackQuery):
     if owned:
         rows.append([InlineKeyboardButton(text="✅ Активувати", callback_data=f"sm:market:activate:{iid}")])
     else:
-        rows.append([InlineKeyboardButton(text=f"🛒 Купити за {int(it.get('price',0))}🪙", callback_data=f"sm:market:buy:{iid}")])
+        btn_text = f"🎁 Відкрити за {int(it.get('price',0))}🪙" if it.get("kind") == "lootbox" else f"🛒 Купити за {int(it.get('price',0))}🪙"
+        rows.append([InlineKeyboardButton(text=btn_text, callback_data=f"sm:market:buy:{iid}")])
 
     rows.append([InlineKeyboardButton(text="⬅️ До магазину", callback_data="sm:market:shop")])
     rows.append([InlineKeyboardButton(text="🎒 Інвентар", callback_data="sm:market:inv")])
@@ -658,7 +675,7 @@ async def market_buy(cb: CallbackQuery):
     if not it:
         await cb.answer("Невідомий товар"); return
 
-    if has_item(cb.from_user.id, iid):
+    if it.get("kind") != "lootbox" and has_item(cb.from_user.id, iid):
         await cb.answer("Вже куплено"); 
         await market_item(cb)
         return
@@ -667,6 +684,35 @@ async def market_buy(cb: CallbackQuery):
     ok = try_spend_coins(cb.from_user.id, price)
     if not ok:
         await cb.answer("Недостатньо монет 🪙", show_alert=True)
+        return
+
+    import random
+    if it.get("kind") == "lootbox":
+        chances = it.get("loot_table", [])
+        roll = random.random()
+        cumulative = 0.0
+        won_id, won_name = None, "Нічого"
+        for prob, l_id, l_name in chances:
+            cumulative += prob
+            if roll <= cumulative:
+                won_id, won_name = l_id, l_name
+                break
+                
+        if won_id and won_id.startswith("coins:"):
+            coins_won = int(won_id.split(":")[1])
+            add_coins(cb.from_user.id, coins_won)
+            await cb.answer(f"🎉 Ти відкрив скриню!\n\nТвій приз: {won_name}", show_alert=True)
+        elif won_id and won_id.startswith("skin:"):
+            if has_item(cb.from_user.id, won_id):
+                add_coins(cb.from_user.id, 50)
+                await cb.answer(f"🎉 Скриня дала: {won_name}, але він вже є.\nКомпенсація: 50🪙", show_alert=True)
+            else:
+                add_item(cb.from_user.id, won_id)
+                await cb.answer(f"🎉 Ти відкрив скриню!\n\nТвій приз: {won_name}", show_alert=True)
+        else:
+            await cb.answer("Скриня виявилась порожньою...", show_alert=True)
+            
+        await market_item(cb)
         return
 
     add_item(cb.from_user.id, iid)
@@ -679,6 +725,22 @@ async def market_buy(cb: CallbackQuery):
             set_skin_ck(cb.from_user.id, skin)
         else:
             db_set_skin(cb.from_user.id, skin)
+        set_active_item(cb.from_user.id, iid)
+    elif it.get("kind") == "skin_board":
+        g = (it.get("game") or "xo").lower()
+        val = str(it.get("value") or "default")
+        if g == "checkers":
+            set_skin_board_ck(cb.from_user.id, val)
+        else:
+            set_skin_board(cb.from_user.id, val)
+        set_active_item(cb.from_user.id, iid)
+    elif it.get("kind") == "skin_cell":
+        g = (it.get("game") or "xo").lower()
+        val = str(it.get("value") or "default")
+        if g == "checkers":
+            set_skin_cell_ck(cb.from_user.id, val)
+        else:
+            set_skin_cell(cb.from_user.id, val)
         set_active_item(cb.from_user.id, iid)
 
     await cb.answer("✅ Куплено та активовано!")
@@ -708,6 +770,22 @@ async def market_activate(cb: CallbackQuery):
             set_skin_ck(cb.from_user.id, skin)
         else:
             db_set_skin(cb.from_user.id, skin)
+        set_active_item(cb.from_user.id, iid)
+    elif it.get("kind") == "skin_board":
+        g = (it.get("game") or "xo").lower()
+        val = str(it.get("value") or "default")
+        if g == "checkers":
+            set_skin_board_ck(cb.from_user.id, val)
+        else:
+            set_skin_board(cb.from_user.id, val)
+        set_active_item(cb.from_user.id, iid)
+    elif it.get("kind") == "skin_cell":
+        g = (it.get("game") or "xo").lower()
+        val = str(it.get("value") or "default")
+        if g == "checkers":
+            set_skin_cell_ck(cb.from_user.id, val)
+        else:
+            set_skin_cell(cb.from_user.id, val)
         set_active_item(cb.from_user.id, iid)
 
     await cb.answer("✅ Активовано")
@@ -1446,13 +1524,89 @@ async def menu_vip(cb: CallbackQuery):
         await cb.answer(); return
     init_db()
     lang = ensure_user(cb)
+    
+    from app.db import get_bp_state
+    import json
+    
+    bp_xp, bp_level, claims_f_str, claims_p_str = get_bp_state(cb.from_user.id)
+    c_free = json.loads(claims_f_str)
+    c_prem = json.loads(claims_p_str)
+    
+    is_premium = is_vip(cb.from_user.id)
+    
+    if is_premium:
+        date = datetime.fromtimestamp(add_vip_days(cb.from_user.id, 0), tz=timezone.utc).strftime("%Y-%m-%d")
+        vip_txt = t(lang, "vip_status_on").format(date=date)
+    else:
+        vip_txt = t(lang, "vip_status_off")
+        
+    text = f"🛡 <b>Battle Pass</b> (Сезон)\n\n"
+    text += f"⚜️ Рівень: <b>{bp_level}</b>\n"
+    text += f"✨ Досвід: <b>{bp_xp}/100</b> XP до наступного рівня\n\n"
+    text += f"💎 Статус: {vip_txt}\n\n"
+    text += "(Грай та вигравай матчі, щоб піднімати рівень!)"
+
+    from app.keyboards import bp_kb
+    await safe_edit_text(cb.message, text, reply_markup=bp_kb(lang, bp_level, c_free, c_prem, is_premium))
+    await cb.answer()
+
+@router.callback_query(F.data == "sm:menu:vip_buy")
+async def menu_vip_buy(cb: CallbackQuery):
+    if not click_ok(cb.from_user.id):
+        await cb.answer(); return
+    init_db()
+    lang = ensure_user(cb)
+    
     if is_vip(cb.from_user.id):
         date = datetime.fromtimestamp(add_vip_days(cb.from_user.id, 0), tz=timezone.utc).strftime("%Y-%m-%d")
         text = t(lang, "vip_status_on").format(date=date)
     else:
         text = t(lang, "vip_status_off")
-    await safe_edit_text(cb.message, f"{t(lang,'vip_title')}\n\n{text}", reply_markup=vip_kb(lang))
+        
+    await safe_edit_text(cb.message, f"💎 Здобудь VIP (Premium Battle Pass)\n\n{text}", reply_markup=vip_kb(lang))
     await cb.answer()
+
+@router.callback_query(F.data.startswith("sm:bp:claim:"))
+async def bp_claim(cb: CallbackQuery):
+    if not click_ok(cb.from_user.id):
+        await cb.answer(); return
+    init_db()
+    
+    parts = cb.data.split(":")
+    claim_type = parts[3] # "free" or "premium"
+    level = int(parts[4])
+    
+    from app.db import get_bp_state, claim_bp_reward
+    from app.vip_service import BP_REWARDS, grant_bp_reward
+    
+    bp_xp, bp_level, _, _ = get_bp_state(cb.from_user.id)
+    is_premium = is_vip(cb.from_user.id)
+    
+    if level > bp_level:
+        await cb.answer("❌ Рівень ще не досягнуто!", show_alert=True)
+        return
+        
+    if claim_type == "premium" and not is_premium:
+        await cb.answer("❌ Ця нагорода лише для VIP (Premium)!", show_alert=True)
+        return
+        
+    reward = BP_REWARDS.get(level, {}).get(claim_type)
+    if not reward:
+        await cb.answer("❌ Нагороди не існує!", show_alert=True)
+        return
+        
+    success = claim_bp_reward(cb.from_user.id, level, is_premium=(claim_type=="premium"))
+    if not success:
+        await cb.answer("⛔ Вже отримано!", show_alert=True)
+        return
+        
+    msg = grant_bp_reward(cb.from_user.id, reward)
+    await cb.answer(f"🎉 Отримано: {msg}", show_alert=True)
+    await menu_vip(cb)
+
+@router.callback_query(F.data == "sm:bp:noop")
+async def bp_noop(cb: CallbackQuery):
+    await cb.answer("🔒 Рівень ще заблоковано! Грай та заробляй XP.", show_alert=True)
 
 @router.callback_query(F.data.startswith("sm:vip:buycoins:"))
 async def vip_buy_coins(cb: CallbackQuery):
@@ -1851,14 +2005,30 @@ async def pvp_move(cb: CallbackQuery):
 
     x_id, o_id = m["x"], m["o"]
 
+    sb_x = is_shadowbanned(x_id)
+    sb_o = is_shadowbanned(o_id)
+    rated = is_rated_pair_game(x_id, o_id, ANTI_BOOST_WINDOW_SEC, ANTI_BOOST_MAX_RATED)
+
     # stats
-    bump_total(x_id, win=(w == "X"))
-    bump_total(o_id, win=(w == "O"))
-    bump_weekly(x_id, win=(w == "X"))
-    bump_weekly(o_id, win=(w == "O"))
-    # season stats
-    inc_season_games(x_id, "xo", win=(w == "X"))
-    inc_season_games(o_id, "xo", win=(w == "O"))
+    if not sb_x:
+        bump_total(x_id, win=(w == "X"))
+        bump_weekly(x_id, win=(w == "X"))
+        inc_season_games(x_id, "xo", win=(w == "X"))
+        if rated:
+            add_bp_xp(x_id, 20 if w == "X" else 10)
+        # Arena hook
+        from app.arena_mode import report_win as _ar_win, report_loss as _ar_loss
+        if w == "X":
+            _ar_win(x_id)
+        elif w != "D":
+            _ar_loss(x_id)
+
+    if not sb_o:
+        bump_total(o_id, win=(w == "O"))
+        bump_weekly(o_id, win=(w == "O"))
+        inc_season_games(o_id, "xo", win=(w == "O"))
+        if rated:
+            add_bp_xp(o_id, 20 if w == "O" else 10)
 
     # referrals (reward when invited played enough rated games)
     for uid in (x_id, o_id):
@@ -1891,21 +2061,30 @@ async def pvp_move(cb: CallbackQuery):
 
     rating_note_x = rating_note_o = ""
     if w != "D":
-        rated = is_rated_pair_game(x_id, o_id, ANTI_BOOST_WINDOW_SEC, ANTI_BOOST_MAX_RATED)
         if rated:
             rx, ro = get_rating(x_id), get_rating(o_id)
             score_x = 1.0 if w == "X" else 0.0
             nx, no = update_elo(rx, ro, score_x)
-            set_rating(x_id, nx)
-            set_rating(o_id, no)
+            
+            if not sb_x:
+                set_rating(x_id, nx)
+            if not sb_o:
+                set_rating(o_id, no)
+                
             # сезонний Elo (не ламає глобальний рейтинг)
             srx, sro = get_season_rating(x_id, "xo"), get_season_rating(o_id, "xo")
             nsx, nso = update_elo(srx, sro, score_x)
-            set_season_rating(x_id, "xo", nsx)
-            set_season_rating(o_id, "xo", nso)
+            if not sb_x:
+                set_season_rating(x_id, "xo", nsx)
+            if not sb_o:
+                set_season_rating(o_id, "xo", nso)
+                
             record_pair_game(x_id, o_id, ANTI_BOOST_WINDOW_SEC)
             rating_note_x = f"\n\n📈 Elo: {rx} → {nx}"
             rating_note_o = f"\n\n📈 Elo: {ro} → {no}"
+            
+            if sb_x: rating_note_x = "\n\n⚠️ Unrated (shadowban)"
+            if sb_o: rating_note_o = "\n\n⚠️ Unrated (shadowban)"
         else:
             rating_note_x = rating_note_o = "\n\n⚠️ Unrated (anti-boost)"
 
@@ -2028,12 +2207,55 @@ async def ref_home(cb: CallbackQuery):
     bot_username = await _get_bot_username(cb.bot)
     link = f"https://t.me/{bot_username}?start=ref_{cb.from_user.id}" if bot_username else f"/start ref_{cb.from_user.id}"
     st = get_ref_stats(cb.from_user.id)
-    text = f"{t(lang,'ref_title')}\n\n{t(lang,'ref_link')}\n<code>{link}</code>\n\n" + t(lang,'ref_stats').format(n=st['ref_count'], c=st['ref_earned']) + "\n\n" + t(lang,'ref_rules')
+    text = (
+        f"{t(lang,'ref_title')}\n\n"
+        f"{t(lang,'ref_link')}\n<code>{link}</code>\n\n"
+        + t(lang,'ref_stats').format(n=st['ref_count'], c=st['ref_earned'])
+        + f"\n\n{t(lang,'ref_rules')}"
+    )
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬅️", callback_data="sm:menu:home")]
+        [InlineKeyboardButton(text="🏆 Топ рефоводів", callback_data="sm:ref:top")],
+        [InlineKeyboardButton(text="⬅️", callback_data="sm:menu:home")],
     ])
     await safe_edit_text(cb.message, text, reply_markup=kb)
     await cb.answer()
+
+
+@router.callback_query(F.data == "sm:ref:top")
+async def ref_top(cb: CallbackQuery):
+    if not click_ok(cb.from_user.id):
+        await cb.answer(); return
+    init_db()
+    lang = ensure_user(cb)
+    # Pull top 10 referrers from DB ordered by ref_count desc
+    con = __import__('app.db', fromlist=['_con'])._con()
+    try:
+        rows = con.execute(
+            "SELECT user_id, username, first_name, ref_count, ref_earned "
+            "FROM users WHERE ref_count > 0 ORDER BY ref_count DESC LIMIT 10"
+        ).fetchall()
+    finally:
+        con.close()
+
+    lines = ["🏆 <b>Топ рефоводів</b>\n"]
+    medals = {1: "🥇", 2: "🥈", 3: "🥉"}
+    for i, row in enumerate(rows, start=1):
+        uid, uname, fname, rcount, rearn = row
+        name = ("@" + uname) if (uname or "").strip() else (fname or "Гравець")
+        badge = medals.get(i, f"{i:02d}.")
+        lines.append(f"{badge} {name} — <b>{rcount}</b> рефералів / <b>{rearn}</b>🪙")
+
+    if not rows:
+        lines.append("Ще нікого немає 😢\nЗапрошуй друзів першим!")
+
+    lines.append("\n💎 Топ-3 щотижня отримають VIP + Преміум Скриню!")
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⬅️ Назад", callback_data="sm:ref:home")]
+    ])
+    await safe_edit_text(cb.message, "\n".join(lines), reply_markup=kb)
+    await cb.answer()
+
 
 # ---------------- Seasons UI ----------------
 @router.callback_query(F.data == "sm:season:home")
@@ -2372,3 +2594,150 @@ async def tourn_cancel(cb: CallbackQuery):
     cancel_tournament(tid)
     await cb.answer("OK")
     await tourn_home(cb)
+
+
+# =====================================================================
+# ⚔️  ARENA MODE  (Hearthstone-style)
+# =====================================================================
+from app.arena_mode import (
+    ARENA_ENTRY_FEE, ARENA_MAX_WINS, ARENA_MAX_LOSSES,
+    get_session as arena_get_session,
+    start_session as arena_start_session,
+    end_session as arena_end_session,
+)
+import app.arena_mode as _arena
+
+def _arena_kb(lang: str, session=None) -> InlineKeyboardMarkup:
+    rows = []
+    if session and not session.finished:
+        rows.append([InlineKeyboardButton(text="🏆 Почати наступний бій", callback_data="sm:arena:play")])
+        rows.append([InlineKeyboardButton(text="🚪 Вийти з Арени", callback_data="sm:arena:quit")])
+    elif not session:
+        rows.append([InlineKeyboardButton(text=f"⚔️ Увійти в Арену ({ARENA_ENTRY_FEE}🪙)", callback_data="sm:arena:enter")])
+    rows.append([InlineKeyboardButton(text="🏠 Меню", callback_data="sm:menu:home")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+@router.callback_query(F.data == "sm:arena:home")
+async def arena_home(cb: CallbackQuery):
+    if not click_ok(cb.from_user.id): await cb.answer(); return
+    init_db()
+    lang = ensure_user(cb)
+    s = arena_get_session(cb.from_user.id)
+
+    if s and s.finished:
+        # claim reward
+        reward_id = s.reward_id or ""
+        reward_label = s.reward_label or "Нагорода"
+        arena_end_session(cb.from_user.id)
+        if reward_id.startswith("coins:"):
+            amt = int(reward_id.split(":")[1])
+            add_coins(cb.from_user.id, amt)
+        elif reward_id.startswith("lootbox:"):
+            add_item(cb.from_user.id, reward_id)
+        # bonus 200 coins for perfect 10-0
+        if s and s.wins >= ARENA_MAX_WINS:
+            add_coins(cb.from_user.id, 200)
+        text = (
+            f"⚔️ <b>Арена завершена!</b>\n\n"
+            f"🏆 Перемог: <b>{s.wins if s else 0}/{ARENA_MAX_WINS}</b>\n"
+            f"💀 Поразок: <b>{s.losses if s else 0}/{ARENA_MAX_LOSSES}</b>\n\n"
+            f"🎁 Нагорода: <b>{reward_label}</b>"
+        )
+        await safe_edit_text(cb.message, text, reply_markup=_arena_kb(lang))
+        await cb.answer("🎉 Нагороду отримано!")
+        return
+
+    if s:
+        text = (
+            f"⚔️ <b>Арена</b>\n\n"
+            f"🏆 Перемог: <b>{s.wins}/{ARENA_MAX_WINS}</b>\n"
+            f"💀 Поразок: <b>{s.losses}/{ARENA_MAX_LOSSES}</b>\n\n"
+            f"Продовжуй битися або вийди!"
+        )
+    else:
+        text = (
+            f"⚔️ <b>Режим Арени</b>\n\n"
+            f"Вхід: <b>{ARENA_ENTRY_FEE} 🪙</b>\n"
+            f"Ціль: {ARENA_MAX_WINS} перемог або до 3 поразок.\n"
+            f"Чим більше перемог — тим крутіша нагорода!\n\n"
+            f"🥇 5+ перемог → Бронзова скриня\n"
+            f"🏆 10 перемог → Золота скриня + 200 монет"
+        )
+    await safe_edit_text(cb.message, text, reply_markup=_arena_kb(lang, s))
+    await cb.answer()
+
+
+@router.callback_query(F.data == "sm:arena:enter")
+async def arena_enter(cb: CallbackQuery):
+    if not click_ok(cb.from_user.id): await cb.answer(); return
+    init_db()
+    lang = ensure_user(cb)
+    uid = cb.from_user.id
+
+    if arena_get_session(uid):
+        await cb.answer("⚔️ Ти вже в Арені!", show_alert=True)
+        return
+
+    if not try_spend_coins(uid, ARENA_ENTRY_FEE):
+        await cb.answer(f"Недостатньо монет! Потрібно {ARENA_ENTRY_FEE}🪙", show_alert=True)
+        return
+
+    g = get_active_game(uid)
+    arena_start_session(uid, game=g)
+    await cb.answer(f"⚔️ Ти увійшов в Арену! Удачі!")
+    await arena_home(cb)
+
+
+@router.callback_query(F.data == "sm:arena:quit")
+async def arena_quit(cb: CallbackQuery):
+    if not click_ok(cb.from_user.id): await cb.answer(); return
+    init_db()
+    lang = ensure_user(cb)
+    s = arena_get_session(cb.from_user.id)
+    if s:
+        # partial reward for early quit
+        wins = s.wins
+        from app.arena_mode import _get_reward
+        rid, rlabel = _get_reward(wins)
+        arena_end_session(cb.from_user.id)
+        if rid.startswith("coins:"):
+            add_coins(cb.from_user.id, int(rid.split(":")[1]))
+        elif rid.startswith("lootbox:"):
+            add_item(cb.from_user.id, rid)
+        await cb.answer(f"Ти вийшов. Нагорода: {rlabel}")
+    await arena_home(cb)
+
+
+@router.callback_query(F.data == "sm:arena:play")
+async def arena_play(cb: CallbackQuery):
+    """Queue the arena player for a random match; hook result back."""
+    if not click_ok(cb.from_user.id): await cb.answer(); return
+    init_db()
+    lang = ensure_user(cb)
+    s = arena_get_session(cb.from_user.id)
+    if not s or s.finished:
+        await arena_home(cb); return
+
+    # Re-use random queue – player is tagged with arena session so game end can report
+    uid = cb.from_user.id
+    if is_in_queue(uid):
+        await cb.answer("Вже в черзі ⏳"); return
+
+    remove_from_queue(uid)
+    entry: dict = {
+        "user_id": uid,
+        "chat_id": cb.message.chat.id,
+        "message_id": cb.message.message_id,
+        "lang": lang,
+        "ts": time.time(),
+        "rating": get_rating(uid),
+        "vip": is_vip(uid),
+        "side": "x",
+        "arena": True,   # flag so match result can be fed back
+    }
+    (WAIT_X_VIP if entry["vip"] else WAIT_X).append(entry)
+    await safe_edit_text(cb.message, f"⚔️ Арена | Пошук суперника...", reply_markup=searching_kb(lang))
+    await cb.answer()
+    WAIT_TASKS[uid] = asyncio.create_task(random_fallback_to_ai(cb, uid, entry["chat_id"], entry["message_id"], 30))
+

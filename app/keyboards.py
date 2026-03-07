@@ -1,60 +1,41 @@
 # app/keyboards.py
 
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from app.config import SKINS, VIP_COIN_PLANS
+from app.config import SKINS, VIP_COIN_PLANS, VIP_PLANS
 from app.i18n import t
 
 
 # ---------- Skin rendering ----------
+# Board skin overlays: custom emoji background for the board header/wrapper
+BOARD_SKIN_LABELS = {
+    "default": "",
+    "wood":    "🪵 ",
+    "neon":    "🌌 ",
+}
+
+# Cell skin: empty cell color override
+CELL_SKIN_EMPTY = {
+    "default": None,  # use figure-skin default
+    "ocean":   "🟦",
+    "dark":    "⬛",
+}
+
+
 def _theme(skin: str):
     s = (skin or "default").lower()
 
-    # default/classic
     if s in ("default", "classic"):
-        return {
-            "x": "❌",
-            "o": "⭕",
-            "e": "·",
-            "hl": "🟩",
-        }
-
-    # 3d
+        return {"x": "❌", "o": "⭕", "e": "·", "hl": "🟩"}
     if s in ("3d", "three_d"):
-        return {
-            "x": "❎",
-            "o": "🅾️",
-            "e": "⬛",
-            "hl": "🟦",
-        }
-
-    # neon
+        return {"x": "❎", "o": "🅾️", "e": "⬛", "hl": "🟦"}
     if s in ("neon",):
-        return {
-            "x": "✖️",
-            "o": "⚪",
-            "e": "▫️",
-            "hl": "🟪",
-        }
-
-    # mono/minimal
+        return {"x": "✖️", "o": "⚪", "e": "▫️", "hl": "🟪"}
     if s in ("mono", "minimal"):
-        return {
-            "x": "X",
-            "o": "O",
-            "e": "·",
-            "hl": "■",
-        }
-
-    # fallback
-    return {
-        "x": "❌",
-        "o": "⭕",
-        "e": "·",
-        "hl": "🟩",
-    }
+        return {"x": "X", "o": "O", "e": "·", "hl": "■"}
+    return {"x": "❌", "o": "⭕", "e": "·", "hl": "🟩"}
 
 
-def _cell_text(ch: str, highlight: bool, skin: str) -> str:
+def _cell_text(ch: str, highlight: bool, skin: str, skin_cell: str = "default") -> str:
     th = _theme(skin)
     if highlight:
         return th["hl"]
@@ -62,7 +43,14 @@ def _cell_text(ch: str, highlight: bool, skin: str) -> str:
         return th["x"]
     if ch == "O":
         return th["o"]
-    return th["e"]
+    # Empty cell: check cell-skin override
+    override = CELL_SKIN_EMPTY.get((skin_cell or "default").lower())
+    return override if override else th["e"]
+
+
+def _board_prefix(skin_board: str) -> str:
+    """Return a decorative prefix added to the board message (used in text, not buttons)."""
+    return BOARD_SKIN_LABELS.get((skin_board or "default").lower(), "")
 
 
 
@@ -121,13 +109,14 @@ def arena_menu_kb(
             InlineKeyboardButton(text=t(lang, "menu_chat2"), url=chat_url) if chat_url else InlineKeyboardButton(text=t(lang, "menu_chat2"), callback_data="sm:menu:links"),
         ],
         [
-    InlineKeyboardButton(text=t(lang, "menu_tournaments"), callback_data="sm:tourn:home"),
-    InlineKeyboardButton(text=t(lang, "menu_seasons"), callback_data="sm:season:home"),
-],
-[
-    InlineKeyboardButton(text=t(lang, "menu_referral"), callback_data="sm:ref:home"),
-    InlineKeyboardButton(text=t(lang, "menu_top100"), callback_data="sm:menu:top"),
-],
+            InlineKeyboardButton(text=t(lang, "menu_tournaments"), callback_data="sm:tourn:home"),
+            InlineKeyboardButton(text=t(lang, "menu_seasons"), callback_data="sm:season:home"),
+            InlineKeyboardButton(text="⚔️ Арена", callback_data="sm:arena:home"),
+        ],
+        [
+            InlineKeyboardButton(text=t(lang, "menu_referral"), callback_data="sm:ref:home"),
+            InlineKeyboardButton(text=t(lang, "menu_top100"), callback_data="sm:menu:top"),
+        ],
 [InlineKeyboardButton(text=t(lang, "menu_profile"), callback_data="sm:menu:profile")],
         [InlineKeyboardButton(text=t(lang, "menu_switch_game"), callback_data="sm:game:select")],
     ]
@@ -142,16 +131,22 @@ def settings_menu_kb(lang: str) -> InlineKeyboardMarkup:
     ])
 
 
-def market_menu_kb(lang: str) -> InlineKeyboardMarkup:
+def market_menu_kb(lang: str, tma_url: str = "") -> InlineKeyboardMarkup:
     # Shop + inventory (coins). VIP and donations are kept as separate sections.
-    return InlineKeyboardMarkup(inline_keyboard=[
+    rows = []
+    if tma_url:
+        from aiogram.types import WebAppInfo
+        rows.append([InlineKeyboardButton(text="🌐 Магазин (Web App)", web_app=WebAppInfo(url=tma_url))])
+    rows += [
         [InlineKeyboardButton(text="🛍 Магазин", callback_data="sm:market:shop")],
         [InlineKeyboardButton(text="🎒 Інвентар", callback_data="sm:market:inv")],
         [InlineKeyboardButton(text=t(lang, "menu_coins"), callback_data="sm:menu:coins")],
         [InlineKeyboardButton(text=t(lang, "menu_vip"), callback_data="sm:menu:vip")],
         [InlineKeyboardButton(text=t(lang, "menu_donate"), callback_data="sm:menu:donate")],
         [InlineKeyboardButton(text=t(lang, "back"), callback_data="sm:menu:home")],
-    ])
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
 
 # ---------- MAIN MENU ----------
 def main_menu_kb(lang: str, sponsor_text: str = "", sponsor_url: str = "", show_sponsor: bool = True) -> InlineKeyboardMarkup:
@@ -261,6 +256,10 @@ def skins_kb(lang: str, current_skin: str, only_active: bool = False) -> InlineK
 
 def vip_kb(lang: str) -> InlineKeyboardMarkup:
     rows = []
+    
+    for days, stars in VIP_PLANS:
+        rows.append([InlineKeyboardButton(text=f"💎 VIP {days}d - ⭐️ {stars}", callback_data=f"stars:vip:{days}:{stars}")])
+        
     for it in VIP_COIN_PLANS:
         if isinstance(it, (list, tuple)) and len(it) >= 2:
             days = int(it[0]); coins = int(it[1])
@@ -276,16 +275,41 @@ def vip_kb(lang: str) -> InlineKeyboardMarkup:
     rows.append([InlineKeyboardButton(text=t(lang, "back"), callback_data="sm:menu:home")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
+def bp_kb(lang: str, bp_level: int, claimed_free: list, claimed_premium: list, is_premium: bool) -> InlineKeyboardMarkup:
+    from app.vip_service import BP_REWARDS
+    rows = []
+    
+    # 3 upcoming rewards
+    count = 0
+    for lvl in sorted(BP_REWARDS.keys()):
+        if lvl <= bp_level:
+            c_f = lvl in claimed_free
+            c_p = lvl in claimed_premium
+            
+            if not c_f:
+                rows.append([InlineKeyboardButton(text=f"🎁 (Free) Рівень {lvl}", callback_data=f"sm:bp:claim:free:{lvl}")])
+            if is_premium and not c_p:
+                rows.append([InlineKeyboardButton(text=f"💎 (VIP) Рівень {lvl}", callback_data=f"sm:bp:claim:premium:{lvl}")])
+        elif count < 2: # Show next max 2 levels
+            rows.append([InlineKeyboardButton(text=f"🔒 Рівень {lvl} (всього {lvl*100} XP)", callback_data="sm:bp:noop")])
+            count += 1
+            
+    if not is_premium:
+        rows.append([InlineKeyboardButton(text="💎 Купити VIP (Battle Pass)", callback_data="sm:menu:vip_buy")])
+        
+    rows.append([InlineKeyboardButton(text=t(lang, "back"), callback_data="sm:menu:home")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
 
 # ---------- BOARDS ----------
-def board_kb(match_id: str, board: str, lang: str, highlight=set(), skin: str = "default") -> InlineKeyboardMarkup:
+def board_kb(match_id: str, board: str, lang: str, highlight=set(), skin: str = "default", skin_cell: str = "default") -> InlineKeyboardMarkup:
     rows = []
     for r in range(3):
         row = []
         for c in range(3):
             i = r * 3 + c
             row.append(InlineKeyboardButton(
-                text=_cell_text(board[i], i in highlight, skin),
+                text=_cell_text(board[i], i in highlight, skin, skin_cell),
                 callback_data=f"sm:ai:move:{match_id}:{i}"
             ))
         rows.append(row)
@@ -306,6 +330,7 @@ def board_kb_pvp(
     highlight=set(),
     extra_rows=None,
     skin: str = "default",
+    skin_cell: str = "default",
     show_controls: bool = True,
 ) -> InlineKeyboardMarkup:
     rows = []
@@ -314,7 +339,7 @@ def board_kb_pvp(
         for c in range(3):
             i = r * 3 + c
             row.append(InlineKeyboardButton(
-                text=_cell_text(board[i], i in highlight, skin),
+                text=_cell_text(board[i], i in highlight, skin, skin_cell),
                 callback_data=f"sm:pvp:move:{match_id}:{i}"
             ))
         rows.append(row)

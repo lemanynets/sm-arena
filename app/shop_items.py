@@ -71,6 +71,94 @@ SHOP_ITEMS: list[dict] = [
         "kind": "skin",
         "value": "minimal",
     },
+
+    # Lootboxes
+    {
+        "item_id": "lootbox:bronze",
+        "title": "📦 Бронзова Скриня",
+        "desc": "Може містити звичайні скіни або трохи монет. Шанс на Рарку - 5%!",
+        "price": 50,
+        "game": "xo", # Shows everywhere visually
+        "kind": "lootbox",
+        "loot_table": [
+            (0.60, "coins:20", "20 Золотих Монет 🪙"),
+            (0.20, "coins:60", "60 Золотих Монет 🪙"),
+            (0.15, "skin:xo:mono", "🎨 XO: Mono (Звичайний)"),
+            (0.05, "skin:checkers:neon", "🎨 Шашки: Neon (Рідкісний)"),
+        ]
+    },
+    {
+        "item_id": "lootbox:gold",
+        "title": "🥇 Золота Скриня",
+        "desc": "Преміальний лутбокс. Шанси: 70% на багато монет, 30% на легендарні скіни!",
+        "price": 250,
+        "game": "xo",
+        "kind": "lootbox",
+        "loot_table": [
+            (0.40, "coins:150", "150 Золотих Монет 🪙"),
+            (0.30, "coins:300", "300 Золотих Монет 🪙"),
+            (0.15, "skin:xo:3d", "🎨 XO: 3D (Легендарний)"),
+            (0.15, "skin:checkers:3d", "🎨 Шашки: 3D (Легендарний)"),
+        ]
+    },
+    # Board skins (XO)
+    {
+        "item_id": "skin_board:xo:wood",
+        "title": "🪵 XO Дошка: Wood",
+        "desc": "Дерев'яний фон для ігрового поля.",
+        "price": 80,
+        "game": "xo",
+        "kind": "skin_board",
+        "value": "wood",
+    },
+    {
+        "item_id": "skin_board:xo:neon",
+        "title": "🌌 XO Дошка: Neon",
+        "desc": "Неоновий фон для ігрового поля.",
+        "price": 80,
+        "game": "xo",
+        "kind": "skin_board",
+        "value": "neon",
+    },
+    # Cell skins (XO)
+    {
+        "item_id": "skin_cell:xo:ocean",
+        "title": "🌊 XO Клітинки: Ocean Blue",
+        "desc": "Синій колір порожніх клітинок.",
+        "price": 60,
+        "game": "xo",
+        "kind": "skin_cell",
+        "value": "ocean",
+    },
+    # Board skins (Checkers)
+    {
+        "item_id": "skin_board:checkers:wood",
+        "title": "🪵 Шашки Дошка: Wood",
+        "desc": "Дерев'яний фон для шашкового поля.",
+        "price": 80,
+        "game": "checkers",
+        "kind": "skin_board",
+        "value": "wood",
+    },
+    {
+        "item_id": "skin_board:checkers:neon",
+        "title": "🌌 Шашки Дошка: Neon",
+        "desc": "Неоновий фон для шашкового поля.",
+        "price": 80,
+        "game": "checkers",
+        "kind": "skin_board",
+        "value": "neon",
+    },
+    # Cell skins (Checkers)
+    {
+        "item_id": "skin_cell:checkers:ocean",
+        "title": "🌊 Шашки Клітинки: Ocean",
+        "desc": "Синій колір темних клітинок.",
+        "price": 60,
+        "game": "checkers",
+        "kind": "skin_cell",
+        "value": "ocean",
+    },
 ]
 
 def items_for_game(game: str) -> list[dict]:

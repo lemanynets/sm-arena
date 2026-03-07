@@ -287,11 +287,24 @@ async def daily_tournament_loop(bot: Bot):
             # create tournaments
             reg_end = time.time() + TOURN_REG_MINUTES * 60
             day_key = db._today_key_uzh(time.time())
-            for game, title in (("xo", f"🏆 Daily XO {day_key}"), ("checkers", f"🏆 Daily Checkers {day_key}")):
+            
+            wday = time.localtime(time.time()).tm_wday
+            is_weekend = (wday in (4, 5, 6)) # Friday, Saturday, Sunday
+            
+            if is_weekend:
+                fee = TOURN_ENTRY_FEE * 5 if TOURN_ENTRY_FEE > 0 else 500
+                prefix = "💎 High-Roller"
+                d_key = day_key + "_hr"
+            else:
+                fee = TOURN_ENTRY_FEE
+                prefix = "🏆 Daily"
+                d_key = day_key
+
+            for game, title in (("xo", f"{prefix} XO {day_key}"), ("checkers", f"{prefix} Checkers {day_key}")):
                 db.create_tournament(
                     game, title, TOURN_DAILY_SIZE, created_by=0,
-                    entry_fee=TOURN_ENTRY_FEE, reg_ends_ts=reg_end,
-                    auto_daily=True, day_key=day_key
+                    entry_fee=fee, reg_ends_ts=reg_end,
+                    auto_daily=True, day_key=d_key
                 )
         except Exception:
             pass

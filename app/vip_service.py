@@ -34,46 +34,37 @@ def grant_weekly_pack(user_id: int) -> str:
     db.set_active_item(user_id, iid)
     return iid
 
+BP_REWARDS = {
+    # level: {"free": {"type": "coins", "amount": 10}, "premium": {"type": "item", "id": "lootbox:bronze"}}
+    5: {"free": {"type": "coins", "amount": 10}, "premium": {"type": "coins", "amount": 50}},
+    10: {"free": {"type": "coins", "amount": 20}, "premium": {"type": "item", "id": "lootbox:bronze"}},
+    15: {"free": {"type": "coins", "amount": 30}, "premium": {"type": "coins", "amount": 100}},
+    20: {"free": {"type": "coins", "amount": 40}, "premium": {"type": "item", "id": "lootbox:gold"}},
+    25: {"free": {"type": "coins", "amount": 50}, "premium": {"type": "coins", "amount": 200}},
+    30: {"free": {"type": "coins", "amount": 100}, "premium": {"type": "item", "id": "skin:xo:3d"}},
+}
+
+def grant_bp_reward(user_id: int, reward: dict) -> str:
+    rtype = reward.get("type")
+    if rtype == "coins":
+        amount = reward.get("amount", 0)
+        db.add_coins(user_id, amount)
+        return f"{amount} 🪙"
+    elif rtype == "item":
+        iid = reward.get("id")
+        if db.has_item(user_id, iid):
+            db.add_coins(user_id, 50)
+            return f"50 🪙 (компенсація за {iid})"
+        else:
+            db.add_item(user_id, iid)
+            return f"Предмет {iid}!"
+    return ""
+
 async def vip_bonus_loop(bot):
     """
-    Background loop:
-    - daily coins for VIP users
-    - weekly pack for VIP users
+    Deprecated loop from old VIP system.
+    Leaving empty so main can still import and run it without crashing.
     """
-    daily_coins = int(getattr(config, "VIP_DAILY_COINS", 10))
-    weekly_enabled = bool(getattr(config, "VIP_WEEKLY_PACK_ENABLED", True))
-
     while True:
-        try:
-            now = int(time.time())
-            vip_users = db.db_list_vip_users()  # (user_id, last_daily, last_weekly)
+        await asyncio.sleep(86400)
 
-            for user_id, last_daily, last_weekly in vip_users:
-                try:
-                    # daily coins
-                    if daily_coins > 0 and (not last_daily or now - int(last_daily) >= DAY):
-                        db.add_coins(user_id, daily_coins)
-                        db.vip_mark_daily_paid(user_id)
-                        try:
-                            await bot.send_message(user_id, f"⭐ VIP бонус: +{daily_coins}🪙 (щоденний)")
-                        except Exception:
-                            pass
-
-                    # weekly pack
-                    if weekly_enabled and (not last_weekly or now - int(last_weekly) >= WEEK):
-                        res = grant_weekly_pack(user_id)
-                        db.vip_mark_weekly_pack(user_id)
-                        try:
-                            if res == "coins":
-                                await bot.send_message(user_id, "⭐ VIP бонус: +монети (усі скіни вже в інвентарі)")
-                            else:
-                                await bot.send_message(user_id, "⭐ VIP бонус: 🎁 +1 пак (щотижневий)")
-                        except Exception:
-                            pass
-                except Exception as e:
-                    log.warning("VIP bonus failed for %s: %s", user_id, e)
-
-        except Exception as e:
-            log.exception("vip_bonus_loop error: %s", e)
-
-        await asyncio.sleep(60)

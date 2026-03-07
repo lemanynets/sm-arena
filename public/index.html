@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SM Arena — Магазин</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --accent: #6c63ff;
+      --bg: #0f0f1a;
+      --card: #1a1a2e;
+      --text: #e0e0ef;
+      --muted: #888;
+      --gold: #f7c94b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 12px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0 16px;
+      border-bottom: 1px solid #222;
+    }
+    header h1 { font-size: 1.2rem; flex: 1; }
+    #coins {
+      background: linear-gradient(135deg, #f7c94b, #e48a00);
+      color: #000;
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-weight: 700;
+    }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin: 14px 0 10px;
+    }
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 8px;
+      border-radius: 10px;
+      cursor: pointer;
+      background: var(--card);
+      color: var(--muted);
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+    .tab.active { background: var(--accent); color: #fff; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 12px;
+      padding-bottom: 20px;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 14px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(108,99,255,.4); }
+    .card.owned::after {
+      content: '✓';
+      position: absolute;
+      top: 8px; right: 10px;
+      color: #4ade80;
+      font-weight: 700;
+    }
+    .card-icon { font-size: 2rem; }
+    .card-title { font-weight: 600; font-size: 0.85rem; }
+    .card-desc { font-size: 0.72rem; color: var(--muted); line-height: 1.3; }
+    .card-price {
+      margin-top: auto;
+      display: inline-block;
+      background: rgba(247,201,75,.15);
+      color: var(--gold);
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      width: fit-content;
+    }
+    .card button {
+      border: none;
+      border-radius: 8px;
+      padding: 7px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      background: var(--accent);
+      color: #fff;
+    }
+    .card button:disabled { opacity: 0.4; cursor: default; }
+    .card button.owned-btn {
+      background: #2e2e4a;
+      color: #4ade80;
+    }
+    #status {
+      position: fixed;
+      top: 12px; left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: #fff;
+      border-radius: 20px;
+      padding: 8px 20px;
+      font-size: 0.85rem;
+      display: none;
+      z-index: 999;
+    }
+    #status.show { display: block; }
+    #profile-panel {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    #profile-panel h2 { font-size: 1rem; margin-bottom: 10px; }
+    .stat-row { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 6px; }
+    .stat-row span:last-child { color: var(--gold); font-weight: 600; }
+    .loader {
+      text-align: center;
+      padding: 40px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+
+<div id="status"></div>
+
+<header>
+  <span style="font-size:1.6rem">⚔️</span>
+  <h1>SM Arena</h1>
+  <span id="coins">... 🪙</span>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('shop')">🛍 Магазин</div>
+  <div class="tab" onclick="switchTab('profile')">👤 Профіль</div>
+</div>
+
+<div id="shop-content">
+  <div class="grid" id="items-grid"><div class="loader">Завантаження...</div></div>
+</div>
+
+<div id="profile-content" style="display:none">
+  <div id="profile-panel"><div class="loader">Завантаження...</div></div>
+</div>
+
+<script>
+const tg = window.Telegram.WebApp;
+tg.ready();
+tg.expand();
+
+const initData = tg.initData || '';
+const BASE = '';
+
+function showStatus(msg, duration = 2500) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), duration);
+}
+
+function headers() {
+  return { 'Content-Type': 'application/json', 'X-Init-Data': initData };
+}
+
+let coinsVal = 0;
+function updateCoinsUI(c) {
+  coinsVal = c;
+  document.getElementById('coins').textContent = `${c} 🪙`;
+}
+
+// ---------------- SHOP ----------------
+async function loadShop() {
+  const grid = document.getElementById('items-grid');
+  try {
+    const r = await fetch(`${BASE}/api/shop`, { headers: headers() });
+    if (!r.ok) { grid.innerHTML = `<div class="loader">Помилка авторизації</div>`; return; }
+    const data = await r.json();
+    updateCoinsUI(data.coins);
+    if (!data.items.length) { grid.innerHTML = '<div class="loader">Магазин порожній 😢</div>'; return; }
+    grid.innerHTML = '';
+    data.items.forEach(it => {
+      const card = document.createElement('div');
+      card.className = 'card' + (it.owned ? ' owned' : '');
+      const icon = it.kind === 'skin_board' ? '🪵' : it.kind === 'skin_cell' ? '🌊' : '🎨';
+      card.innerHTML = `
+        <div class="card-icon">${icon}</div>
+        <div class="card-title">${it.title}</div>
+        <div class="card-desc">${it.desc}</div>
+        <div class="card-price">💰 ${it.price} 🪙</div>
+        <button ${it.owned ? 'class="owned-btn" disabled' : ''} onclick="buyItem('${it.item_id}', this)">
+          ${it.owned ? '✅ Куплено' : '🛒 Купити'}
+        </button>`;
+      grid.appendChild(card);
+    });
+  } catch (e) {
+    grid.innerHTML = `<div class="loader">Помилка: ${e.message}</div>`;
+  }
+}
+
+async function buyItem(itemId, btn) {
+  btn.disabled = true;
+  try {
+    const r = await fetch(`${BASE}/api/buy`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ item_id: itemId }),
+    });
+    const data = await r.json();
+    if (data.ok) {
+      showStatus('✅ Куплено!');
+      updateCoinsUI(data.coins);
+      btn.textContent = '✅ Куплено';
+      btn.className = 'owned-btn';
+      btn.closest('.card').classList.add('owned');
+    } else {
+      showStatus(data.error === 'not_enough_coins' ? '❌ Недостатньо монет' : '❌ Помилка');
+      btn.disabled = false;
+    }
+  } catch (e) {
+    showStatus('❌ Мережева помилка');
+    btn.disabled = false;
+  }
+}
+
+// ---------------- PROFILE ----------------
+async function loadProfile() {
+  const panel = document.getElementById('profile-panel');
+  try {
+    const r = await fetch(`${BASE}/api/profile`, { headers: headers() });
+    if (!r.ok) { panel.innerHTML = `<div class="loader">Помилка авторизації</div>`; return; }
+    const u = await r.json();
+    updateCoinsUI(u.coins);
+    panel.innerHTML = `
+      <h2>👤 ${u.first_name || 'Гравець'} ${u.username ? '@' + u.username : ''}</h2>
+      <div class="stat-row"><span>💰 Монети:</span><span>${u.coins} 🪙</span></div>
+      <div class="stat-row"><span>🎮 Рейтинг XO:</span><span>${u.rating_xo}</span></div>
+      <div class="stat-row"><span>♟️ Рейтинг Шашки:</span><span>${u.rating_ck}</span></div>
+      <div class="stat-row"><span>⚜️ BP Рівень:</span><span>${u.bp_level}</span></div>
+      <div class="stat-row"><span>💎 VIP:</span><span>${u.is_vip ? '✅ Активний' : '—'}</span></div>`;
+  } catch (e) {
+    panel.innerHTML = `<div class="loader">Помилка: ${e.message}</div>`;
+  }
+}
+
+// ---------------- TABS ----------------
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab')[tab === 'shop' ? 0 : 1].classList.add('active');
+  document.getElementById('shop-content').style.display = tab === 'shop' ? '' : 'none';
+  document.getElementById('profile-content').style.display = tab === 'profile' ? '' : 'none';
+  if (tab === 'profile') loadProfile();
+}
+
+loadShop();
+</script>
+</body>
+</html>

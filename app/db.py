@@ -45,6 +45,10 @@ def _ensure_user_columns(con: sqlite3.Connection):
     cols = {row[1] for row in con.execute("PRAGMA table_info(users)").fetchall()}
     wanted = {
         "skin_ck": "TEXT NOT NULL DEFAULT 'default'",
+        "skin_board": "TEXT NOT NULL DEFAULT 'default'",
+        "skin_cell": "TEXT NOT NULL DEFAULT 'default'",
+        "skin_board_ck": "TEXT NOT NULL DEFAULT 'default'",
+        "skin_cell_ck": "TEXT NOT NULL DEFAULT 'default'",
         "active_game": "TEXT NOT NULL DEFAULT 'xo'",
         "rating_ck": "INTEGER NOT NULL DEFAULT 1000",
         "total_wins_ck": "INTEGER NOT NULL DEFAULT 0",
@@ -72,7 +76,11 @@ def _ensure_user_columns(con: sqlite3.Connection):
         "vip_last_weekly_pack_ts": "REAL",
         "tourn_tickets": "INTEGER NOT NULL DEFAULT 0",
         "tourn_ticket_last_day": "TEXT NOT NULL DEFAULT ''",
-
+        "bp_xp": "INTEGER NOT NULL DEFAULT 0",
+        "bp_level": "INTEGER NOT NULL DEFAULT 1",
+        "bp_claimed_free": "TEXT NOT NULL DEFAULT '[]'",
+        "bp_claimed_premium": "TEXT NOT NULL DEFAULT '[]'",
+        "shadowban": "INTEGER NOT NULL DEFAULT 0",
     }
     for name, ddl in wanted.items():
         if name not in cols:
@@ -636,6 +644,58 @@ def get_skin(user_id: int) -> str:
     u = get_user(user_id)
     s = (u or {}).get("skin") or "default"
     return str(s)
+
+def set_skin_board(user_id: int, skin: str) -> None:
+    init_db()
+    con = _con()
+    try:
+        con.execute("UPDATE users SET skin_board=? WHERE user_id=?", (str(skin), int(user_id)))
+        con.commit()
+    finally:
+        con.close()
+
+def get_skin_board(user_id: int) -> str:
+    u = get_user(user_id)
+    return str((u or {}).get("skin_board") or "default")
+
+def set_skin_cell(user_id: int, skin: str) -> None:
+    init_db()
+    con = _con()
+    try:
+        con.execute("UPDATE users SET skin_cell=? WHERE user_id=?", (str(skin), int(user_id)))
+        con.commit()
+    finally:
+        con.close()
+
+def get_skin_cell(user_id: int) -> str:
+    u = get_user(user_id)
+    return str((u or {}).get("skin_cell") or "default")
+
+def set_skin_board_ck(user_id: int, skin: str) -> None:
+    init_db()
+    con = _con()
+    try:
+        con.execute("UPDATE users SET skin_board_ck=? WHERE user_id=?", (str(skin), int(user_id)))
+        con.commit()
+    finally:
+        con.close()
+
+def get_skin_board_ck(user_id: int) -> str:
+    u = get_user(user_id)
+    return str((u or {}).get("skin_board_ck") or "default")
+
+def set_skin_cell_ck(user_id: int, skin: str) -> None:
+    init_db()
+    con = _con()
+    try:
+        con.execute("UPDATE users SET skin_cell_ck=? WHERE user_id=?", (str(skin), int(user_id)))
+        con.commit()
+    finally:
+        con.close()
+
+def get_skin_cell_ck(user_id: int) -> str:
+    u = get_user(user_id)
+    return str((u or {}).get("skin_cell_ck") or "default")
 
 
 def vip_until(user_id: int) -> float:
@@ -2289,3 +2349,84 @@ def vip_mark_weekly_pack(user_id: int) -> None:
         con.commit()
     finally:
         con.close()
+
+# --- Battle Pass ---
+def get_bp_state(user_id: int) -> tuple[int, int, str, str]:
+    init_db()
+    u = get_user(user_id)
+    if not u: return (0, 1, "[]", "[]")
+    return (
+        int(u.get("bp_xp") or 0),
+        int(u.get("bp_level") or 1),
+        str(u.get("bp_claimed_free") or "[]"),
+        str(u.get("bp_claimed_premium") or "[]"),
+    )
+
+def add_bp_xp(user_id: int, xp: int) -> tuple[int, int]:
+    init_db()
+    con = _con()
+    try:
+        u = con.execute("SELECT bp_xp, bp_level FROM users WHERE user_id=?", (int(user_id),)).fetchone()
+        if not u: return 0, 1
+        
+        cur_xp = int(u["bp_xp"])
+        cur_lvl = int(u["bp_level"])
+        
+        new_xp = cur_xp + xp
+        
+        # 100 XP per level
+        levels_gained = new_xp // 100
+        new_lvl = cur_lvl + levels_gained
+        new_xp = new_xp % 100
+        
+        # Max Level 30
+        if new_lvl > 30:
+            new_lvl = 30
+            new_xp = 0
+            
+        con.execute("UPDATE users SET bp_xp=?, bp_level=? WHERE user_id=?", (new_xp, new_lvl, int(user_id)))
+        con.commit()
+        return new_xp, new_lvl
+    finally:
+        con.close()
+
+def claim_bp_reward(user_id: int, level: int, is_premium: bool) -> bool:
+    init_db()
+    con = _con()
+    try:
+        import json
+        u = con.execute("SELECT bp_claimed_free, bp_claimed_premium FROM users WHERE user_id=?", (int(user_id),)).fetchone()
+        if not u: return False
+        
+        claimed_f = json.loads(str(u["bp_claimed_free"] or "[]"))
+        claimed_p = json.loads(str(u["bp_claimed_premium"] or "[]"))
+        
+        if is_premium:
+            if level in claimed_p: return False
+            claimed_p.append(level)
+            con.execute("UPDATE users SET bp_claimed_premium=? WHERE user_id=?", (json.dumps(claimed_p), int(user_id)))
+        else:
+            if level in claimed_f: return False
+            claimed_f.append(level)
+            con.execute("UPDATE users SET bp_claimed_free=? WHERE user_id=?", (json.dumps(claimed_f), int(user_id)))
+            
+        con.commit()
+        return True
+    finally:
+        con.close()
+
+# --- Anti-Abuse ---
+def set_shadowban(user_id: int, status: bool) -> None:
+    init_db()
+    con = _con()
+    try:
+        con.execute("UPDATE users SET shadowban=? WHERE user_id=?", (1 if status else 0, int(user_id)))
+        con.commit()
+    finally:
+        con.close()
+        
+def is_shadowbanned(user_id: int) -> bool:
+    init_db()
+    u = get_user(user_id)
+    if not u: return False
+    return bool(u.get("shadowban", 0))

@@ -18,6 +18,7 @@ from app.logging_setup import setup_logging
 # Routers
 from app.handlers_menu import router as menu_router
 from app.payments_liqpay_router import router as liqpay_payments_router
+from app.payments_stars_router import router as stars_payments_router
 from app.admin_commands import router as admin_router
 from app.admin_stats_router import router as admin_stats_router
 from app.checkers_game.router import router as checkers_router
@@ -30,6 +31,48 @@ from app.vip_service import vip_bonus_loop
 # Webhook server (FastAPI)
 import uvicorn
 from app.liqpay_webhook import create_app as create_liqpay_app
+
+
+# TMA aiohttp server (optional — only if TMA_PORT or WEBHOOK_BASE_URL is set)
+_TMA_URL: str = ""
+
+async def _run_tma_server() -> None:
+    """Run lightweight aiohttp server for the Telegram Mini App."""
+    from aiohttp import web as aio_web
+    from app.web_app import make_web_app
+    from app.config import WEBHOOK_HOST, WEBHOOK_PORT, WEBHOOK_BASE_URL
+
+    tma_port = int(getattr(config, "TMA_PORT", 0) or 0)
+    if not tma_port:
+        tma_port = WEBHOOK_PORT + 1
+
+    host = (WEBHOOK_HOST or "0.0.0.0").strip()
+    log = logging.getLogger("sm-arena.tma")
+    log.info("TMA server: http://%s:%s", host, tma_port)
+
+    tma_app = make_web_app()
+    runner = aio_web.AppRunner(tma_app)
+    await runner.setup()
+    site = aio_web.TCPSite(runner, host, tma_port)
+    await site.start()
+
+    # Expose the public URL for use in keyboards
+    global _TMA_URL
+    base = (WEBHOOK_BASE_URL or "").rstrip("/")
+    if base:
+        _TMA_URL = base + "/"   # TMA served at root path
+    else:
+        _TMA_URL = f"http://{host}:{tma_port}/"
+
+    log.info("TMA URL: %s", _TMA_URL)
+    # Keep running forever (cancelled by main loop on shutdown)
+    try:
+        while True:
+            await asyncio.sleep(3600)
+    except asyncio.CancelledError:
+        await runner.cleanup()
+        raise
+
 
 
 def _load_env() -> None:
@@ -113,6 +156,7 @@ async def main() -> None:
     dp.include_router(checkers_router)
     dp.include_router(chess_router)
     dp.include_router(liqpay_payments_router)
+    dp.include_router(stars_payments_router)
     dp.include_router(admin_router)
     dp.include_router(admin_stats_router)
 
@@ -121,6 +165,7 @@ async def main() -> None:
     asyncio.create_task(daily_tournament_loop(bot))
     asyncio.create_task(tournament_registrar_loop(bot))
     asyncio.create_task(vip_bonus_loop(bot))
+    asyncio.create_task(_run_tma_server())
 
     try:
         await _run_webhook_server(bot)

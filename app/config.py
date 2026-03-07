@@ -68,6 +68,31 @@ SKINS = [
     ("mono", "Mono"),
 ]
 
+
+SKIN_BOARDS = [
+    ("default", "Classic"),
+    ("wood", "Wood"),
+    ("neon", "Neon Board"),
+]
+
+SKIN_CELLS = [
+    ("default", "Classic"),
+    ("ocean", "Ocean Blue"),
+    ("dark", "Pitch Black"),
+]
+
+SKIN_BOARDS_CK = [
+    ("default", "Classic"),
+    ("wood", "Wood"),
+    ("neon", "Neon Board"),
+]
+
+SKIN_CELLS_CK = [
+    ("default", "Classic"),
+    ("ocean", "Ocean Blue"),
+]
+
+
 # ================== VIP ==================
 # (days, stars)
 VIP_PLANS = [
