@@ -55,6 +55,28 @@ async def cmd_ban(m: Message):
     ban_user(uid)
     await m.answer(f"✅ Banned: {uid}")
 
+@router.message(Command("givecoins"))
+async def cmd_givecoins(m: Message):
+    if not m.from_user or not is_admin(m.from_user.id):
+        return
+
+    parts = (m.text or "").split()
+    if len(parts) < 3:
+        await m.answer("Usage: /givecoins <user_id> <amount>")
+        return
+
+    try:
+        uid = int(parts[1])
+        amount = int(parts[2])
+    except Exception:
+        await m.answer("Bad user_id or amount")
+        return
+
+    init_db()
+    add_coins(uid, amount)
+    new_bal = get_coins(uid)
+    await m.answer(f"✅ Added {amount} coins to {uid}. New balance: {new_bal}")
+
 
 @router.message(Command("unban"))
 async def cmd_unban(m: Message):

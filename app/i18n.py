@@ -122,6 +122,9 @@ TEXTS = {
 
         # profile/top
         "profile_title": "Профіль гравця",
+        "profile_username": "Юзернейм",
+        "profile_name": "Ім'я",
+        "profile_id": "ID",
         "profile_rank": "Місце в топі",
         "profile_total": "Всього перемог",
         "profile_week": "За тиждень",
@@ -270,6 +273,9 @@ TEXTS = {
         "lang_saved": "✅ Language saved",
 
         "profile_title": "Player profile",
+        "profile_username": "Username",
+        "profile_name": "Name",
+        "profile_id": "ID",
         "profile_rank": "Top rank",
         "profile_total": "Total wins",
         "profile_week": "Weekly wins",
