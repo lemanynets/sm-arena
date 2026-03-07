@@ -131,6 +131,12 @@ from app.db import (
 
 )
 
+_tma_url: str = ""
+
+def set_tma_url(url: str):
+    global _tma_url
+    _tma_url = url
+
 router = Router()
 
 WIN_EMOJI = "🎉🎊🥳🏆🔥"

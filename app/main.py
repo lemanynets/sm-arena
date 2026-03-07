@@ -16,7 +16,7 @@ from app import config
 from app.logging_setup import setup_logging
 
 # Routers
-from app.handlers_menu import router as menu_router
+from app.handlers_menu import router as menu_router, set_tma_url
 from app.payments_liqpay_router import router as liqpay_payments_router
 from app.payments_stars_router import router as stars_payments_router
 from app.admin_commands import router as admin_router
@@ -33,48 +33,6 @@ import uvicorn
 from app.liqpay_webhook import create_app as create_liqpay_app
 
 
-# TMA aiohttp server (optional — only if TMA_PORT or WEBHOOK_BASE_URL is set)
-_TMA_URL: str = ""
-
-async def _run_tma_server() -> None:
-    """Run lightweight aiohttp server for the Telegram Mini App."""
-    from aiohttp import web as aio_web
-    from app.web_app import make_web_app
-    from app.config import WEBHOOK_HOST, WEBHOOK_PORT, WEBHOOK_BASE_URL
-
-    tma_port = int(getattr(config, "TMA_PORT", 0) or 0)
-    if not tma_port:
-        tma_port = WEBHOOK_PORT + 1
-
-    host = (WEBHOOK_HOST or "0.0.0.0").strip()
-    log = logging.getLogger("sm-arena.tma")
-    log.info("TMA server: http://%s:%s", host, tma_port)
-
-    tma_app = make_web_app()
-    runner = aio_web.AppRunner(tma_app)
-    await runner.setup()
-    site = aio_web.TCPSite(runner, host, tma_port)
-    await site.start()
-
-    # Expose the public URL for use in keyboards
-    global _TMA_URL
-    base = (WEBHOOK_BASE_URL or "").rstrip("/")
-    if base:
-        _TMA_URL = base + "/"   # TMA served at root path
-    else:
-        _TMA_URL = f"http://{host}:{tma_port}/"
-
-    log.info("TMA URL: %s", _TMA_URL)
-    # Keep running forever (cancelled by main loop on shutdown)
-    try:
-        while True:
-            await asyncio.sleep(3600)
-    except asyncio.CancelledError:
-        await runner.cleanup()
-        raise
-
-
-
 def _load_env() -> None:
     """Load .env from project root reliably."""
     root_env = Path(__file__).resolve().parents[1] / ".env"
@@ -84,22 +42,22 @@ def _load_env() -> None:
 async def _run_webhook_server(bot: Bot) -> None:
     """Run FastAPI server for LiqPay callbacks and /pay."""
     app = create_liqpay_app(bot=bot)
-    host = (config.WEBHOOK_HOST or "0.0.0.0").strip() if hasattr(config, "WEBHOOK_HOST") else "0.0.0.0"
-    port = int(getattr(config, "WEBHOOK_PORT", 8080) or 8080)
+    host = (config.WEBHOOK_HOST or "0.0.0.0").strip()
+    port = int(config.WEBHOOK_PORT or 8080)
     log = logging.getLogger("sm-arena")
 
     while True:
         try:
             uv_cfg = uvicorn.Config(app=app, host=host, port=port, log_level="info", reload=False)
             server = uvicorn.Server(uv_cfg)
-            log.info("Webhook server: http://%s:%s", host, port)
+            log.info("Integrated server (FastAPI + TMA): http://%s:%s", host, port)
             await server.serve()
-            log.warning("Webhook server stopped; restarting in 3s")
+            log.warning("Server stopped; restarting in 3s")
             await asyncio.sleep(3)
         except asyncio.CancelledError:
             raise
         except BaseException:
-            log.exception("Webhook server crashed; restarting in 5s")
+            log.exception("Server crashed; restarting in 5s")
             await asyncio.sleep(5)
 
 
@@ -121,15 +79,11 @@ async def main() -> None:
     _load_env()
     setup_logging()
     log = logging.getLogger("sm-arena")
-    log.info("Starting SM Arena bot")
-    log.info(
-        "Config flags: BOT_TOKEN=%s LIQPAY_PUBLIC_KEY=%s LIQPAY_PRIVATE_KEY=%s WEBHOOK_BASE_URL=%s WEBHOOK_PORT=%s",
-        "set" if bool(getattr(config, "BOT_TOKEN", "").strip()) else "missing",
-        "set" if bool(getattr(config, "LIQPAY_PUBLIC_KEY", "").strip()) else "missing",
-        "set" if bool(getattr(config, "LIQPAY_PRIVATE_KEY", "").strip()) else "missing",
-        "set" if bool(getattr(config, "WEBHOOK_BASE_URL", "").strip()) else "missing",
-        getattr(config, "WEBHOOK_PORT", ""),
-    )
+    log.info("Starting SM Arena bot (Integrated Mode)")
+    
+    # Set TMA URL for keyboards
+    tma_url = (config.WEBHOOK_BASE_URL or "").rstrip("/") + "/"
+    set_tma_url(tma_url)
 
     bot = Bot(
         token=config.BOT_TOKEN,
@@ -140,16 +94,7 @@ async def main() -> None:
 
     @dp.error()
     async def on_dispatch_error(event: ErrorEvent):
-        upd = event.update
-        cb_data = getattr(getattr(upd, "callback_query", None), "data", None)
-        msg_text = getattr(getattr(upd, "message", None), "text", None)
-        log.exception(
-            "Unhandled update error update_id=%s callback_data=%s message_text=%s",
-            getattr(upd, "update_id", None),
-            cb_data,
-            msg_text,
-            exc_info=event.exception,
-        )
+        log.exception("Unhandled update error", exc_info=event.exception)
         return True
 
     dp.include_router(menu_router)
@@ -165,7 +110,6 @@ async def main() -> None:
     asyncio.create_task(daily_tournament_loop(bot))
     asyncio.create_task(tournament_registrar_loop(bot))
     asyncio.create_task(vip_bonus_loop(bot))
-    asyncio.create_task(_run_tma_server())
 
     try:
         await _run_webhook_server(bot)
@@ -177,4 +121,3 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-# Deployment trigger: restart service

@@ -1,19 +1,10 @@
 # app/config.py
 import os
-import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
 _ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(_ENV_PATH)  # Load from .env if exists
-
-# Diagnostic print (safe: keys only)
-print(f"--- Environment Diagnosis ---", file=sys.stderr)
-print(f"CWD: {os.getcwd()}", file=sys.stderr)
-print(f"Railway Info: Service={os.getenv('RAILWAY_SERVICE_NAME')}, Env={os.getenv('RAILWAY_ENVIRONMENT_NAME')}", file=sys.stderr)
-print(f"All ENV keys: {sorted(list(os.environ.keys()))}", file=sys.stderr)
-print(f"Is .env exists? {_ENV_PATH.exists()} at {_ENV_PATH}", file=sys.stderr)
-print(f"----------------------------", file=sys.stderr)
 
 def _read_env_file() -> dict[str, str]:
     # Keeping this for backward compatibility if needed, 
@@ -179,14 +170,10 @@ DONATE_AMOUNTS = [10, 25, 50, 100]
 LIQPAY_PUBLIC_KEY = _env("LIQPAY_PUBLIC_KEY", "")
 LIQPAY_PRIVATE_KEY = _env("LIQPAY_PRIVATE_KEY", "")
 
-# Public base URL of your webhook server (must be HTTPS for LiqPay callbacks)
-_RAILWAY_PUBLIC_DOMAIN = _env("RAILWAY_PUBLIC_DOMAIN", "").strip()
-_WEBHOOK_DEFAULT = f"https://{_RAILWAY_PUBLIC_DOMAIN}" if _RAILWAY_PUBLIC_DOMAIN else ""
-WEBHOOK_BASE_URL = _env("WEBHOOK_BASE_URL", _WEBHOOK_DEFAULT)
-
+# ĐŁĐ°Đ»Đ°ŃˆŃ‚ŃĐ˛Đ°Đ˝Đ˝ŃŹ Webhook / FastAPI (ĐąĐ°ĐłĐ°Ń‚Đľ ĐżĐ»Đ°Ń‚Ń„ĐľŃ€ĐĽ ŃŹĐş Railway Đ´Đ°ŃŽŃ‚ŃŚ ĐżĐľŃ€Ń‚ Ń‡ĐµŃ€ĐµĐ· Đ·ĐĽŃ–Đ˝Đ˝Ń PORT)
 WEBHOOK_HOST = _env("WEBHOOK_HOST", "0.0.0.0")
-# Railway and similar platforms expose dynamic HTTP port in PORT.
-WEBHOOK_PORT = int(_env("PORT", _env("WEBHOOK_PORT", "8080")))
+WEBHOOK_PORT = int(os.environ.get("PORT") or _env("WEBHOOK_PORT", "8080"))
+WEBHOOK_BASE_URL = _env("WEBHOOK_BASE_URL", "").rstrip("/")
 
 PAY_CURRENCY = "UAH"
 

@@ -1,22 +1,123 @@
 import html
 import logging
 import uuid
+import json
+import hmac
+import hashlib
+import urllib.parse
+from pathlib import Path
 
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi import FastAPI, Request, HTTPException, Header
+from fastapi.responses import HTMLResponse, PlainTextResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app import config
-from app.db import add_coins, add_vip_days, get_lang, get_order, mark_order_paid
+from app.db import (
+    add_coins, add_vip_days, get_lang, get_order, mark_order_paid,
+    get_user, get_coins, has_item, try_spend_coins, add_item
+)
 from app.i18n import t
 from app.liqpay_utils import b64decode_json, b64encode_json, liqpay_signature, verify_callback
+from app.shop_items import SHOP_ITEMS, get_item
 
-log = logging.getLogger("sm-arena.payments")
+log = logging.getLogger("sm-arena.web")
 
+# TMA Validation Logic
+def _validate_init_data(init_data_raw: str) -> dict | None:
+    if not init_data_raw:
+        return None
+    try:
+        params = dict(urllib.parse.parse_qsl(init_data_raw, keep_blank_values=True))
+        check_hash = params.pop("hash", "")
+        sorted_data = "\n".join(f"{k}={v}" for k, v in sorted(params.items()))
+        secret_key = hmac.new(b"WebAppData", config.BOT_TOKEN.encode(), hashlib.sha256).digest()
+        expected = hmac.new(secret_key, sorted_data.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, check_hash):
+            return None
+        user_json = params.get("user", "{}")
+        return json.loads(user_json)
+    except Exception:
+        return None
 
 def create_app(bot=None) -> FastAPI:
-    app = FastAPI()
+    app = FastAPI(title="SM Arena Web API")
     app.state.bot = bot
 
+    # --- TMA Static Files ---
+    public_dir = Path(__file__).resolve().parent.parent / "public"
+    if (public_dir / "static").exists():
+        app.mount("/static", StaticFiles(directory=str(public_dir / "static")), name="static")
+
+    @app.get("/", response_class=HTMLResponse)
+    async def serve_tma_index():
+        index_path = public_dir / "index.html"
+        if not index_path.exists():
+            return HTMLResponse("Mini App Frontend missing", status_code=404)
+        return HTMLResponse(content=index_path.read_text(encoding="utf-8"))
+
+    # --- TMA API Endpoints ---
+    @app.get("/api/profile")
+    async def api_profile(x_init_data: str = Header(None)):
+        tg_user = _validate_init_data(x_init_data)
+        if not tg_user:
+            raise HTTPException(status_code=401, detail="Invalid session")
+        uid = int(tg_user.get("id", 0))
+        u = get_user(uid) or {}
+        from app.db import is_vip
+        return {
+            "user_id": uid,
+            "username": u.get("username", ""),
+            "first_name": u.get("first_name", ""),
+            "coins": int(u.get("coins", 0) or 0),
+            "rating_xo": int(u.get("rating", 1000) or 1000),
+            "rating_ck": int(u.get("rating_ck", 1000) or 1000),
+            "bp_level": int(u.get("bp_level", 1) or 1),
+            "is_vip": is_vip(uid),
+        }
+
+    @app.get("/api/shop")
+    async def api_shop(x_init_data: str = Header(None)):
+        tg_user = _validate_init_data(x_init_data)
+        if not tg_user:
+            raise HTTPException(status_code=401, detail="Invalid session")
+        uid = int(tg_user.get("id", 0))
+        
+        items = []
+        for it in SHOP_ITEMS:
+            if it.get("kind") == "lootbox": continue
+            items.append({
+                "item_id": it["item_id"],
+                "title": it["title"],
+                "desc": it.get("desc", ""),
+                "price": it.get("price", 0),
+                "kind": it.get("kind", "skin"),
+                "game": it.get("game", "xo"),
+                "owned": has_item(uid, it["item_id"]),
+            })
+        return {"coins": get_coins(uid), "items": items}
+
+    @app.post("/api/buy")
+    async def api_buy(request: Request, x_init_data: str = Header(None)):
+        tg_user = _validate_init_data(x_init_data)
+        if not tg_user:
+            raise HTTPException(status_code=401, detail="Invalid session")
+        uid = int(tg_user.get("id", 0))
+        
+        body = await request.json()
+        item_id = str(body.get("item_id", ""))
+        it = get_item(item_id)
+        if not it:
+            raise HTTPException(status_code=400, detail="Unknown item")
+        if has_item(uid, item_id):
+            return {"ok": False, "error": "already_owned"}
+        
+        if not try_spend_coins(uid, int(it.get("price", 0) or 0)):
+            return {"ok": False, "error": "not_enough_coins"}
+        
+        add_item(uid, item_id)
+        return {"ok": True, "coins": get_coins(uid)}
+
+    # --- LiqPay Webhook Endpoints ---
     @app.get("/healthz")
     async def healthz():
         return {"ok": True}
@@ -24,192 +125,56 @@ def create_app(bot=None) -> FastAPI:
     @app.get("/pay/{order_id}", response_class=HTMLResponse)
     async def pay_page(order_id: str):
         row = get_order(order_id)
-        if not row:
-            log.warning("pay page order not found order_id=%s", order_id)
-            return HTMLResponse("<h3>Order not found</h3>", status_code=404)
-
-        if str(row["status"]) != "NEW":
-            log.info("pay page order already processed order_id=%s status=%s", order_id, row["status"])
-            return HTMLResponse("<h3>Order already processed</h3>", status_code=400)
-
-        if not config.LIQPAY_PUBLIC_KEY or not config.LIQPAY_PRIVATE_KEY:
-            log.error("pay page missing LiqPay keys order_id=%s", order_id)
-            return HTMLResponse("<h3>LiqPay keys are not configured</h3>", status_code=500)
-
-        if not config.WEBHOOK_BASE_URL:
-            log.error("pay page missing WEBHOOK_BASE_URL order_id=%s", order_id)
-            return HTMLResponse("<h3>WEBHOOK_BASE_URL is not configured</h3>", status_code=500)
-
+        if not row: return HTMLResponse("Order not found", status_code=404)
+        if str(row["status"]) != "NEW": return HTMLResponse("Processed", status_code=400)
+        
         amount_uah = float(row["amount_minor"]) / 100.0
-        sku = str(row["sku"])
-
         params = {
             "public_key": config.LIQPAY_PUBLIC_KEY,
             "version": "3",
             "action": "pay",
             "amount": f"{amount_uah:.2f}",
             "currency": "UAH",
-            "description": f"SM_Arena: {sku}",
+            "description": f"SM_Arena: {row['sku']}",
             "order_id": str(order_id),
             "server_url": f"{config.WEBHOOK_BASE_URL}/liqpay/callback",
             "result_url": f"{config.WEBHOOK_BASE_URL}/pay/success?order_id={order_id}",
         }
-
         data = b64encode_json(params)
-        signature = liqpay_signature(config.LIQPAY_PRIVATE_KEY, data)
-        log.info(
-            "pay page generated order_id=%s user_id=%s sku=%s amount_minor=%s",
-            order_id,
-            row["user_id"],
-            sku,
-            row["amount_minor"],
-        )
-
-        return HTMLResponse(
-            f"""<!doctype html>
-<html><head><meta charset="utf-8"><title>Redirecting...</title></head>
-<body>
-  <p>Redirecting to LiqPay checkout...</p>
-  <form id="f" method="POST" action="https://www.liqpay.ua/api/3/checkout">
-    <input type="hidden" name="data" value="{html.escape(data)}"/>
-    <input type="hidden" name="signature" value="{html.escape(signature)}"/>
-  </form>
-  <script>document.getElementById('f').submit();</script>
-</body></html>"""
-        )
+        sig = liqpay_signature(config.LIQPAY_PRIVATE_KEY, data)
+        return HTMLResponse(f"""<form id="f" method="POST" action="https://www.liqpay.ua/api/3/checkout"><input type="hidden" name="data" value="{html.escape(data)}"/><input type="hidden" name="signature" value="{html.escape(sig)}"/></form><script>document.getElementById('f').submit();</script>""")
 
     @app.get("/pay/success", response_class=HTMLResponse)
     async def pay_success(order_id: str = ""):
-        return HTMLResponse("<h3>Payment accepted. If credit did not arrive in 1-2 minutes, contact admin.</h3>")
+        return HTMLResponse("Payment accepted. Check bot in 1 min.")
 
     @app.post("/liqpay/callback")
     async def liqpay_callback(request: Request):
-        rid = uuid.uuid4().hex[:10]
         try:
             form = await request.form()
-            data_b64 = form.get("data")
-            sig = form.get("signature")
-
-            if not data_b64 or not sig:
-                log.warning("callback bad request rid=%s", rid)
-                return PlainTextResponse("bad request", status_code=400)
-
-            if not verify_callback(config.LIQPAY_PRIVATE_KEY, data_b64, sig):
-                log.warning("callback bad signature rid=%s", rid)
-                return PlainTextResponse("forbidden", status_code=403)
-
+            data_b64, sig = form.get("data"), form.get("signature")
+            if not verify_callback(config.LIQPAY_PRIVATE_KEY, data_b64, sig): return PlainTextResponse("forbidden", 403)
+            
             payload = b64decode_json(data_b64)
-
             order_id = payload.get("order_id")
-            status = str(payload.get("status") or "")
-            amount = payload.get("amount")
-            currency = str(payload.get("currency") or "")
-
-            if not order_id:
-                log.warning("callback missing order_id rid=%s payload=%s", rid, payload)
-                return PlainTextResponse("no order_id", status_code=400)
-
-            row = get_order(str(order_id))
-            if not row:
-                log.warning("callback order not found rid=%s order_id=%s", rid, order_id)
-                return PlainTextResponse("not found", status_code=404)
-
-            # Non-success statuses are expected from LiqPay lifecycle; ignore without failing callback.
-            if status not in ("success", "sandbox"):
-                log.info(
-                    "callback ignored status rid=%s order_id=%s status=%s",
-                    rid,
-                    order_id,
-                    status,
-                )
-                return PlainTextResponse("ok", status_code=200)
-
-            if amount not in (None, ""):
-                try:
-                    callback_minor = int(round(float(amount) * 100))
-                    if callback_minor != int(row["amount_minor"]):
-                        log.warning(
-                            "callback amount mismatch rid=%s order_id=%s callback_minor=%s order_minor=%s",
-                            rid,
-                            order_id,
-                            callback_minor,
-                            row["amount_minor"],
-                        )
-                except Exception:
-                    log.warning("callback amount parse failed rid=%s order_id=%s amount=%s", rid, order_id, amount)
-
-            if currency and currency.upper() != str(row["currency"]).upper():
-                log.warning(
-                    "callback currency mismatch rid=%s order_id=%s callback_currency=%s order_currency=%s",
-                    rid,
-                    order_id,
-                    currency,
-                    row["currency"],
-                )
-
-            if not mark_order_paid(str(order_id)):
-                log.info("callback duplicate order rid=%s order_id=%s", rid, order_id)
-                return PlainTextResponse("ok", status_code=200)
-
-            user_id = int(row["user_id"])
-            sku = str(row["sku"])
-
-            if sku.startswith("coins_"):
-                coins, _uah = config.LIQPAY_COIN_PACKS.get(sku, (0, 0))
-                if coins:
-                    add_coins(user_id, int(coins))
-                    log.info(
-                        "callback paid coins rid=%s order_id=%s user_id=%s sku=%s coins=%s",
-                        rid,
-                        order_id,
-                        user_id,
-                        sku,
-                        coins,
-                    )
-                else:
-                    log.warning(
-                        "callback unknown coin sku rid=%s order_id=%s user_id=%s sku=%s",
-                        rid,
-                        order_id,
-                        user_id,
-                        sku,
-                    )
-            elif sku == config.LIQPAY_VIP_SKU:
-                add_vip_days(user_id, int(config.LIQPAY_VIP_DAYS))
-                log.info(
-                    "callback paid vip rid=%s order_id=%s user_id=%s sku=%s days=%s",
-                    rid,
-                    order_id,
-                    user_id,
-                    sku,
-                    config.LIQPAY_VIP_DAYS,
-                )
-            else:
-                log.warning(
-                    "callback unknown sku rid=%s order_id=%s user_id=%s sku=%s",
-                    rid,
-                    order_id,
-                    user_id,
-                    sku,
-                )
-
-            bot = getattr(app.state, "bot", None)
-            if bot:
-                try:
-                    lang = get_lang(user_id) or "en"
-                    if sku.startswith("coins_"):
-                        await bot.send_message(user_id, t(lang, "pay_success_coins"))
-                    elif sku == config.LIQPAY_VIP_SKU:
-                        await bot.send_message(
-                            user_id,
-                            t(lang, "pay_success_vip").format(days=config.LIQPAY_VIP_DAYS),
-                        )
-                except Exception:
-                    log.warning("callback user notify failed rid=%s order_id=%s user_id=%s", rid, order_id, user_id)
-
-            return PlainTextResponse("ok", status_code=200)
+            if payload.get("status") not in ("success", "sandbox"): return PlainTextResponse("ok")
+            
+            if mark_order_paid(str(order_id)):
+                row = get_order(str(order_id))
+                uid, sku = int(row["user_id"]), str(row["sku"])
+                if sku.startswith("coins_"):
+                    add_coins(uid, int(config.LIQPAY_COIN_PACKS.get(sku, (0,0))[0]))
+                elif sku == config.LIQPAY_VIP_SKU:
+                    add_vip_days(uid, int(config.LIQPAY_VIP_DAYS))
+                
+                bot = app.state.bot
+                if bot:
+                    lang = get_lang(uid) or "en"
+                    t_key = "pay_success_coins" if sku.startswith("coins_") else "pay_success_vip"
+                    await bot.send_message(uid, t(lang, t_key).format(days=config.LIQPAY_VIP_DAYS))
+            return PlainTextResponse("ok")
         except Exception:
-            log.exception("callback internal error rid=%s", rid)
-            return PlainTextResponse("internal error", status_code=500)
+            log.exception("callback error")
+            return PlainTextResponse("error", 500)
 
     return app
