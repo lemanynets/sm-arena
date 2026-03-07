@@ -42,7 +42,7 @@ async def cmd_ban(m: Message):
 
     parts = (m.text or "").split()
     if len(parts) < 2:
-        await m.answer("Usage: /ban <user_id>")
+        await m.answer("Usage: /ban [user_id]")
         return
 
     try:
@@ -62,7 +62,7 @@ async def cmd_givecoins(m: Message):
 
     parts = (m.text or "").split()
     if len(parts) < 3:
-        await m.answer("Usage: /givecoins <user_id> <amount>")
+        await m.answer("Usage: /givecoins [user_id] [amount]")
         return
 
     try:
@@ -85,7 +85,7 @@ async def cmd_unban(m: Message):
 
     parts = (m.text or "").split()
     if len(parts) < 2:
-        await m.answer("Usage: /unban <user_id>")
+        await m.answer("Usage: /unban [user_id]")
         return
 
     try:
@@ -241,25 +241,25 @@ async def cmd_givecoins(m: Message):
     target_id = None
     amount = None
 
-    # /givecoins <user_id> <amount>
+    # /givecoins [user_id] [amount]
     if len(parts) >= 3:
         try:
             target_id = int(parts[1])
             amount = int(parts[2])
         except Exception:
-            await m.answer("Usage: /givecoins <user_id> <amount>  OR reply: /givecoins <amount>")
+            await m.answer("Usage: /givecoins [user_id] [amount]  OR reply: /givecoins [amount]")
             return
 
-    # reply: /givecoins <amount>
+    # reply: /givecoins [amount]
     elif len(parts) >= 2 and m.reply_to_message and m.reply_to_message.from_user:
         try:
             target_id = int(m.reply_to_message.from_user.id)
             amount = int(parts[1])
         except Exception:
-            await m.answer("Usage: /givecoins <user_id> <amount>  OR reply: /givecoins <amount>")
+            await m.answer("Usage: /givecoins [user_id] [amount]  OR reply: /givecoins [amount]")
             return
     else:
-        await m.answer("Usage: /givecoins <user_id> <amount>  OR reply: /givecoins <amount>")
+        await m.answer("Usage: /givecoins [user_id] [amount]  OR reply: /givecoins [amount]")
         return
 
     add_coins(target_id, amount)
@@ -273,7 +273,7 @@ async def cmd_broadcast(m: Message):
 
     text = (m.text or "").replace("/broadcast", "", 1).strip()
     if not text:
-        await m.answer("Usage: /broadcast <message text>")
+        await m.answer("Usage: /broadcast [message text]")
         return
 
     init_db()
