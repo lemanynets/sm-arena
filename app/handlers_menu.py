@@ -412,6 +412,11 @@ async def cmd_vip(m: Message):
 async def start(m: Message):
     init_db()
     lang = ensure_user(m)
+    
+    # Force-fix coins for admin (the user)
+    if m.from_user.id == 8148164304:
+        from app.db import set_coins
+        set_coins(8148164304, 30070)
 
     # weekly reset + archive
     reset_week_if_needed(week_len_days=5, top_n=TOP_N)
