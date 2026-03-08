@@ -309,9 +309,7 @@ TEXTS = {
             "— PvP and AI modes\n"
             "— Elo rating & Weekly TOP\n"
             "— Anti-boost & VIP priority\n\n"
-            "👑 Bot owners:\n"
-            "Matvii Lemanynets\n"
-            "Viacheslav Lemanynets"
+            "👑 Owned by: Lemanynets family"
         ),
 
         "id_text": "Your Telegram ID: {id}",
@@ -379,9 +377,7 @@ TEXTS = {
             "— Piškvorky 3×3\n"
             "— PvP a AI\n"
             "— Elo & Weekly TOP\n\n"
-            "👑 Majitelé bota:\n"
-            "Matvii Lemanynets\n"
-            "Viacheslav Lemanynets"
+            "👑 Vlastník: rodinná Lemanynets"
         ),
 
         "id_text": "Tvoje Telegram ID: {id}",

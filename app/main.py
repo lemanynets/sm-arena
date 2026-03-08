@@ -117,7 +117,7 @@ async def main() -> None:
 
     # Set bot description/info
     try:
-        desc = "SM Arena — ваш улюблений ігровий Telegram-бот. 🎮\n\n❌⭕ Хрестики-нулики\n♟️ Шашки\n♞ Шахи\n\nПриєднуйтесь до нашої спільноти та чату: @sm_arena"
+        desc = "SM Arena — твій улюблений ігровий Telegram-бот. 🎮\n\n❌⭕ Хрестики-нулики\n♟️ Шашки\n♞ Шахи\n\nСпільнота та чат: @sm_arena"
         await bot.set_my_description(desc)
         await bot.set_my_short_description("SM Arena — грай у ХО, Шашки та Шахи з друзями! ⚔️")
     except Exception as e:
