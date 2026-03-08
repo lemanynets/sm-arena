@@ -18,11 +18,11 @@ from app.logging_setup import setup_logging
 # Routers
 from app.handlers_menu import router as menu_router, set_tma_url
 from app.payments_liqpay_router import router as liqpay_payments_router
-from app.payments_stars_router import router as stars_payments_router
+from app.payments_stars_router import router as stars_router
 from app.admin_commands import router as admin_router
 from app.admin_stats_router import router as admin_stats_router
-from app.checkers_game.router import router as checkers_router
-from app.chess_game.router import router as chess_router
+from app.checkers_game.router import router as ck_router
+from app.chess_game.router import router as ch_router
 
 # Background loops
 from app.tournament_service import daily_tournament_loop, tournament_registrar_loop
@@ -100,10 +100,10 @@ async def main() -> None:
         return True
 
     dp.include_router(menu_router)
-    dp.include_router(checkers_router)
-    dp.include_router(chess_router)
+    dp.include_router(ck_router)
+    dp.include_router(ch_router)
     dp.include_router(liqpay_payments_router)
-    dp.include_router(stars_payments_router)
+    dp.include_router(stars_router)
     dp.include_router(admin_router)
     dp.include_router(admin_stats_router)
 
@@ -114,6 +114,14 @@ async def main() -> None:
     asyncio.create_task(vip_bonus_loop(bot))
     asyncio.create_task(push_loop(bot))
     asyncio.create_task(start_marketing_engine(bot))
+
+    # Set bot description/info
+    try:
+        desc = "SM Arena — ваш улюблений ігровий Telegram-бот. 🎮\n\n❌⭕ Хрестики-нулики\n♟️ Шашки\n♞ Шахи\n\nПриєднуйтесь до нашої спільноти та чату: @sm_arena"
+        await bot.set_my_description(desc)
+        await bot.set_my_short_description("SM Arena — грай у ХО, Шашки та Шахи з друзями! ⚔️")
+    except Exception as e:
+        log.warning(f"Failed to set bot info: {e}")
 
     try:
         await _run_webhook_server(bot)

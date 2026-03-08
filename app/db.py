@@ -15,9 +15,9 @@ DEFAULT_RATING = 1000
 
 # Default external links (can be changed via admin commands)
 DEFAULT_NEWS_TITLE = "Новини"
-DEFAULT_NEWS_URL = "https://t.me/Praca_czua"
+DEFAULT_NEWS_URL = "https://t.me/sm_arena"
 DEFAULT_CHAT_TITLE = "Чатик"
-DEFAULT_CHAT_URL = "https://t.me/Praca_czua/1"
+DEFAULT_CHAT_URL = "https://t.me/sm_arena"
 
 
 def _con():
@@ -110,6 +110,7 @@ def _ensure_user_columns(con: sqlite3.Connection):
         "skin_chess_pieces": "TEXT NOT NULL DEFAULT 'classic'",
         "skin_chess_board": "TEXT NOT NULL DEFAULT 'classic'",
         "last_promo_msg_ts": "REAL NOT NULL DEFAULT 0",
+        "wallpaper": "TEXT NOT NULL DEFAULT 'default'",
     }
     for name, ddl in wanted.items():
         if name not in cols:
@@ -150,7 +151,9 @@ def init_db():
             week_games INTEGER NOT NULL DEFAULT 0,
             vip_until REAL NOT NULL DEFAULT 0,
             skin TEXT NOT NULL DEFAULT 'default',
-            updated_ts REAL NOT NULL DEFAULT 0
+            updated_ts REAL NOT NULL DEFAULT 0,
+            last_daily_bonus_ts REAL NOT NULL DEFAULT 0,
+            last_promo_msg_ts REAL NOT NULL DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS banned(
@@ -248,8 +251,27 @@ CREATE TABLE IF NOT EXISTS tournament_rating(
     PRIMARY KEY(user_id, game)
 );
 
+CREATE TABLE IF NOT EXISTS withdrawals(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    coins INTEGER NOT NULL,
+    stars INTEGER NOT NULL,
+    status TEXT NOT NULL, -- PENDING/APPROVED/REJECTED
+    created_ts REAL NOT NULL,
+    processed_ts REAL,
+    admin_note TEXT
+);
+
 
         """)
+
+        # Migrations for new user activity columns
+        try:
+            con.execute("ALTER TABLE users ADD COLUMN last_daily_bonus_ts REAL NOT NULL DEFAULT 0")
+        except sqlite3.OperationalError: pass
+        try:
+            con.execute("ALTER TABLE users ADD COLUMN last_promo_msg_ts REAL NOT NULL DEFAULT 0")
+        except sqlite3.OperationalError: pass
 
         _ensure_user_columns(con)
         _ensure_week_history_columns(con)
@@ -260,6 +282,10 @@ CREATE TABLE IF NOT EXISTS tournament_rating(
         except Exception:
             pass
 
+        # Forcing news/chat links update to sm_arena as requested
+        _meta_set(con, "news_url", "https://t.me/sm_arena")
+        _meta_set(con, "chat_url", "https://t.me/sm_arena")
+        
         # defaults
         _meta_set(con, "week_start_ts", str(time.time()))
         _meta_set(con, "prize_pool", _meta_get(con, "prize_pool", "100"))
@@ -413,32 +439,26 @@ def get_chat() -> dict:
     init_db()
     con = _con()
     try:
+        url = _meta_get(con, "chat_url", "https://t.me/sm_arena")
+        if "Praca_czua" in url or "SM_Arena_chat" in url:
+            url = "https://t.me/sm_arena"
         return {
-            "title": _meta_get(con, "chat_title", DEFAULT_CHAT_TITLE),
-            "url": _meta_get(con, "chat_url", DEFAULT_CHAT_URL),
+            "title": _meta_get(con, "chat_title", "Чатик"),
+            "url": url,
         }
     finally:
         con.close()
-
-# News link stored in meta
-def set_news(title: str, url: str):
-    init_db()
-    con = _con()
-    try:
-        _meta_set(con, "news_title", title or "")
-        _meta_set(con, "news_url", url or "")
-        con.commit()
-    finally:
-        con.close()
-
 
 def get_news() -> dict:
     init_db()
     con = _con()
     try:
+        url = _meta_get(con, "news_url", "https://t.me/sm_arena")
+        if "Praca_czua" in url:
+            url = "https://t.me/sm_arena"
         return {
-            "title": _meta_get(con, "news_title", DEFAULT_NEWS_TITLE),
-            "url": _meta_get(con, "news_url", DEFAULT_NEWS_URL),
+            "title": _meta_get(con, "news_title", "Новини"),
+            "url": url,
         }
     finally:
         con.close()
@@ -559,7 +579,7 @@ def get_inventory(user_id: int) -> list[dict]:
 
 
 def set_active_item(user_id: int, item_id: str) -> None:
-    """Marks item active; deactivates same-scope items by prefix skin:xo: or skin:checkers:."""
+    """Marks item active; deactivates same-scope items."""
     init_db()
     con = _con()
     try:
@@ -569,13 +589,31 @@ def set_active_item(user_id: int, item_id: str) -> None:
             prefix = "skin:xo:%"
         elif iid.startswith("skin:checkers:"):
             prefix = "skin:checkers:%"
+        elif iid.startswith("skin_board:xo:"):
+            prefix = "skin_board:xo:%"
+        elif iid.startswith("skin_board:checkers:"):
+            prefix = "skin_board:checkers:%"
+        elif iid.startswith("wallpaper:"):
+            prefix = "wallpaper:%"
 
         if prefix:
             con.execute("UPDATE inventory SET active=0 WHERE user_id=? AND item_id LIKE ?", (int(user_id), prefix))
         con.execute("UPDATE inventory SET active=1 WHERE user_id=? AND item_id=?", (int(user_id), iid))
+        
+        # If it's a wallpaper, also update the users table for fast access
+        if iid.startswith("wallpaper:"):
+            wp_name = iid.split(":")[-1]
+            con.execute("UPDATE users SET wallpaper=? WHERE user_id=?", (wp_name, int(user_id)))
+            
         con.commit()
     finally:
         con.close()
+
+def get_active_wallpaper(user_id: int) -> str:
+    init_db()
+    u = get_user(user_id)
+    if not u: return "default"
+    return str(u.get("wallpaper", "default"))
 
 
 
@@ -2477,6 +2515,56 @@ def set_last_promo_msg_ts(user_id: int, ts: float) -> None:
     finally:
         con.close()
 
+
+# --- Withdrawals ---
+def create_withdrawal(user_id: int, coins: int, stars: int) -> int:
+    init_db()
+    con = _con()
+    try:
+        cur = con.execute(
+            "INSERT INTO withdrawals(user_id, coins, stars, status, created_ts) VALUES(?,?,?,'PENDING',?)",
+            (int(user_id), int(coins), int(stars), float(time.time()))
+        )
+        con.commit()
+        return int(cur.lastrowid)
+    finally:
+        con.close()
+
+
+def get_pending_withdrawals() -> list[dict]:
+    init_db()
+    con = _con()
+    try:
+        cur = con.execute("SELECT * FROM withdrawals WHERE status='PENDING' ORDER BY created_ts ASC")
+        return [dict(r) for r in cur.fetchall()]
+    finally:
+        con.close()
+
+
+def process_withdrawal(withdrawal_id: int, status: str, admin_note: str = None) -> bool:
+    """status: APPROVED/REJECTED"""
+    init_db()
+    con = _con()
+    try:
+        con.execute(
+            "UPDATE withdrawals SET status=?, processed_ts=?, admin_note=? WHERE id=?",
+            (str(status), float(time.time()), admin_note, int(withdrawal_id))
+        )
+        con.commit()
+        return True
+    finally:
+        con.close()
+
+
+def get_withdrawal(withdrawal_id: int) -> dict:
+    init_db()
+    con = _con()
+    try:
+        row = con.execute("SELECT * FROM withdrawals WHERE id=?", (int(withdrawal_id),)).fetchone()
+        return dict(row) if row else None
+    finally:
+        con.close()
+
 def get_marketing_candidates() -> list[dict]:
     """Returns all users to check for marketing events."""
     init_db()
@@ -2484,5 +2572,60 @@ def get_marketing_candidates() -> list[dict]:
     try:
         con.row_factory = sqlite3.Row
         return [dict(r) for r in con.execute("SELECT * FROM users").fetchall()]
+    finally:
+        con.close()
+
+def claim_daily_bonus(user_id: int, amount: int = 50) -> tuple[bool, int]:
+    """Returns (Success, NewBalance). Success is False if already claimed today."""
+    init_db()
+    con = _con()
+    try:
+        now = time.time()
+        row = con.execute("SELECT last_daily_bonus_ts, coins FROM users WHERE user_id=?", (int(user_id),)).fetchone()
+        if not row:
+            return False, 0
+        
+        last_ts = row[0]
+        cur_coins = row[1]
+        
+        # Check if same day (local time or UTC, let's use days since epoch)
+        def get_day(ts):
+            return int(ts // 86400)
+            
+        if get_day(now) <= get_day(last_ts):
+            return False, cur_coins
+            
+        new_coins = cur_coins + amount
+        con.execute("UPDATE users SET coins=?, last_daily_bonus_ts=? WHERE user_id=?", (new_coins, now, int(user_id)))
+        con.commit()
+        return True, new_coins
+    finally:
+        con.close()
+
+def can_claim_daily_bonus(user_id: int) -> bool:
+    init_db()
+    con = _con()
+    try:
+        now = time.time()
+        row = con.execute("SELECT last_daily_bonus_ts FROM users WHERE user_id=?", (int(user_id),)).fetchone()
+        if not row: return False
+        
+        def get_day(ts):
+            return int(ts // 86400)
+            
+        return get_day(now) > get_day(row[0])
+    finally:
+        con.close()
+def get_top_weekly(game: str = "xo", limit: int = 3) -> list[dict]:
+    init_db()
+    con = _con()
+    try:
+        suf = "_ck" if game == "checkers" else ""
+        col = "week_wins" + suf
+        rows = con.execute(
+            f"SELECT user_id, first_name, {col} as wins FROM users WHERE {col} > 0 ORDER BY {col} DESC LIMIT ?",
+            (limit,)
+        ).fetchall()
+        return [dict(r) for r in rows]
     finally:
         con.close()

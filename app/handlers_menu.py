@@ -4,13 +4,14 @@ import asyncio
 import time
 import secrets
 import string
+import io
 from datetime import datetime, timezone, timedelta
 from types import SimpleNamespace
 
 from aiogram import Bot, Router, F
 from aiogram.types import (
     CallbackQuery, Message, LabeledPrice, PreCheckoutQuery,
-    InlineKeyboardButton, InlineKeyboardMarkup
+    InlineKeyboardButton, InlineKeyboardMarkup, BufferedInputFile, InputMediaPhoto
 )
 from aiogram.filters import CommandStart, Command
 from aiogram.exceptions import TelegramBadRequest
@@ -36,6 +37,7 @@ from app.i18n import t, detect_lang
 from app.rating import update_elo
 from app.winline import get_winline
 from app.shop_items import items_for_game, get_item
+from app.board_renderer import renderer
 
 from app import config
 from app.config import (
@@ -128,6 +130,7 @@ from app.db import (
     advance_round_if_ready,
     get_bracket_text,
     cancel_tournament,
+    claim_daily_bonus,
 
 )
 
@@ -142,6 +145,35 @@ router = Router()
 WIN_EMOJI = "🎉🎊🥳🏆🔥"
 LOSE_EMOJI = "😢💔🥲"
 DRAW_EMOJI = "🤝😌"
+
+async def render_xo_msg(chat_id: int, message_id: int, board: str, bot, lang: str, user_id: int, highlight=None, caption="", kb=None):
+    from app.db import get_skin, get_active_wallpaper
+    skin = get_skin(user_id)
+    wp = get_active_wallpaper(user_id)
+    is_premium = skin and "premium" in skin.lower()
+    if is_premium:
+        img = renderer.render_xo(board, highlight=highlight, wallpaper=wp)
+        bio = io.BytesIO()
+        img.save(bio, format="PNG")
+        bio.seek(0)
+        photo = BufferedInputFile(bio.read(), filename="xo_board.png")
+        try:
+            await bot.edit_message_media(
+                chat_id=chat_id,
+                message_id=message_id,
+                media=InputMediaPhoto(media=photo, caption=caption, parse_mode="HTML"),
+                reply_markup=kb
+            )
+        except Exception:
+            msg = await bot.send_photo(chat_id, photo, caption=caption, reply_markup=kb, parse_mode="HTML")
+            return msg.message_id
+    else:
+        try:
+            await bot.edit_message_text(caption, chat_id=chat_id, message_id=message_id, reply_markup=kb, parse_mode="HTML")
+        except Exception:
+            msg = await bot.send_message(chat_id, caption, reply_markup=kb, parse_mode="HTML")
+            return msg.message_id
+    return message_id
 
 ANTI_BOOST_WINDOW_SEC = ANTI_BOOST_WINDOW_HOURS * 60 * 60
 SEASON_LEN = timedelta(days=SEASON_LENGTH_DAYS)
@@ -194,14 +226,36 @@ def menu_kb(lang: str, uid: int):
     g = get_active_game(uid)
     chat = get_chat()
     news = get_news()
-    return arena_menu_kb(lang, g, chat_url=chat.get('url',''), news_url=news.get('url',''))
+    from app.db import can_claim_daily_bonus
+    show_bonus = can_claim_daily_bonus(uid)
+    return arena_menu_kb(
+        lang, g, 
+        chat_url=chat.get('url',''), 
+        news_url=news.get('url',''),
+        show_daily_bonus=show_bonus
+    )
 
 def compute_highlight(board: str) -> set[int]:
-    wl = get_winline(board)
-    if not wl:
+    wb = get_winline(board)
+    if not wb:
         return set()
-    _, line = wl
+    _, line = wb
     return set(line)
+
+
+@router.callback_query(F.data == "sm:menu:daily_bonus")
+async def cb_daily_bonus(cb: CallbackQuery):
+    if not click_ok(cb.from_user.id):
+        await cb.answer(); return
+    lang = ensure_user(cb)
+    
+    success, new_bal = claim_daily_bonus(cb.from_user.id)
+    if success:
+        await cb.message.answer(t(lang, "daily_bonus_claimed"))
+        # Refresh the menu to remove the button
+        await menu_home(cb)
+    else:
+        await cb.answer(t(lang, "daily_bonus_already_claimed"), show_alert=True)
 
 def best_match(opponents: list, target_rating: int):
     if not opponents:
@@ -575,13 +629,15 @@ def _game_title(lang: str, g: str) -> str:
 
 
 def _skin_allowed(user_id: int, game: str, skin: str) -> bool:
-    # default/classic are always available; VIP can use all; otherwise must own via shop
+    # default/classic/neon/premium are always available; VIP can use all; otherwise must own via shop
     k = (skin or "default").lower()
-    if k in ("default", "classic"):
+    if k in ("default", "classic", "neon", "premium"):
         return True
     if is_vip(user_id):
         return True
-    gid = "checkers" if (game or "xo") == "checkers" else "xo"
+    gid = (game or "xo").lower()
+    if gid == "shashky" or gid == "шашки": gid = "checkers"
+    elif gid == "шахи" or gid == "шахматы": gid = "chess"
     return has_item(user_id, f"skin:{gid}:{k}")
 
 
@@ -1471,12 +1527,19 @@ async def set_skin_cb(cb: CallbackQuery):
     lang = ensure_user(cb)
 
     skin = cb.data.split(":")[-1]
-    valid = {k for k, _ in SKINS}
+    from app.config import SKINS, SKIN_BOARDS_CK, SKIN_BOARDS
+    
+    g = get_active_game(cb.from_user.id)
+    if g == "checkers":
+        valid = {k for k, _ in SKIN_BOARDS_CK}
+    elif g == "chess":
+        valid = {k for k, _ in SKIN_BOARDS}
+    else:
+        valid = {k for k, _ in SKINS}
+
     if skin not in valid:
         await cb.answer()
         return
-
-    g = get_active_game(cb.from_user.id)
 
     # lock premium skins behind shop (or VIP)
     if not _skin_allowed(cb.from_user.id, g, skin):
@@ -1487,7 +1550,12 @@ async def set_skin_cb(cb: CallbackQuery):
         set_skin_ck(cb.from_user.id, skin)
         if has_item(cb.from_user.id, f"skin:checkers:{skin}"):
             set_active_item(cb.from_user.id, f"skin:checkers:{skin}")
+    elif g == "chess":
+        from app.db import set_skin_chess_board, set_skin_chess_pieces
+        set_skin_chess_board(cb.from_user.id, skin)
+        set_skin_chess_pieces(cb.from_user.id, skin)
     else:
+        from app.db import set_skin as db_set_skin
         db_set_skin(cb.from_user.id, skin)
         if has_item(cb.from_user.id, f"skin:xo:{skin}"):
             set_active_item(cb.from_user.id, f"skin:xo:{skin}")
@@ -1674,9 +1742,11 @@ async def ai_start(cb: CallbackQuery):
     match_id = str(uuid.uuid4())[:8]
     board = "........."
     AI_MATCHES[match_id] = {"level": level, "board": board, "user_id": cb.from_user.id, "status": "playing"}
-    await safe_edit_text(cb.message, 
-        f"🤖 AI ({level}) — {t(lang,'your_move')}",
-        reply_markup=board_kb(match_id, board, lang, highlight=set(), skin=get_skin(cb.from_user.id))
+    
+    await render_xo_msg(
+        cb.message.chat.id, cb.message.message_id, board, cb.bot, lang, cb.from_user.id,
+        caption=f"🤖 AI ({level}) — {t(lang,'your_move')}",
+        kb=board_kb(match_id, board, lang, highlight=set(), skin=get_skin(cb.from_user.id))
     )
     await cb.answer()
 
@@ -1711,15 +1781,12 @@ async def ai_move(cb: CallbackQuery):
     w = check_winner(board)
     if w:
         hl = set() if w == "D" else compute_highlight(board)
-        await safe_edit_text(cb.message, 
-            result_text(w, level, lang),
-            reply_markup=board_kb(match_id, board, lang, highlight=hl, skin=get_skin(cb.from_user.id))
-        )
-        # emoji must be inside same message -> append to text, no send_message
         extra = WIN_EMOJI if w == "X" else (LOSE_EMOJI if w == "O" else DRAW_EMOJI)
-        await safe_edit_text(cb.message, 
-            result_text(w, level, lang) + f"\n\n{extra}",
-            reply_markup=board_kb(match_id, board, lang, highlight=hl, skin=get_skin(cb.from_user.id))
+        await render_xo_msg(
+            cb.message.chat.id, cb.message.message_id, board, cb.bot, lang, cb.from_user.id,
+            highlight=hl,
+            caption=result_text(w, level, lang) + f"\n\n{extra}",
+            kb=board_kb(match_id, board, lang, highlight=hl, skin=get_skin(cb.from_user.id))
         )
         return
 
@@ -1731,15 +1798,18 @@ async def ai_move(cb: CallbackQuery):
     if w:
         hl = set() if w == "D" else compute_highlight(board)
         extra = WIN_EMOJI if w == "X" else (LOSE_EMOJI if w == "O" else DRAW_EMOJI)
-        await safe_edit_text(cb.message, 
-            result_text(w, level, lang) + f"\n\n{extra}",
-            reply_markup=board_kb(match_id, board, lang, highlight=hl, skin=get_skin(cb.from_user.id))
+        await render_xo_msg(
+            cb.message.chat.id, cb.message.message_id, board, cb.bot, lang, cb.from_user.id,
+            highlight=hl,
+            caption=result_text(w, level, lang) + f"\n\n{extra}",
+            kb=board_kb(match_id, board, lang, highlight=hl, skin=get_skin(cb.from_user.id))
         )
         return
 
-    await safe_edit_text(cb.message, 
-        f"🤖 AI ({level}) — {t(lang,'your_move')}",
-        reply_markup=board_kb(match_id, board, lang, highlight=set(), skin=get_skin(cb.from_user.id))
+    await render_xo_msg(
+        cb.message.chat.id, cb.message.message_id, board, cb.bot, lang, cb.from_user.id,
+        caption=f"🤖 AI ({level}) — {t(lang,'your_move')}",
+        kb=board_kb(match_id, board, lang, highlight=set(), skin=get_skin(cb.from_user.id))
     )
     await cb.answer()
 
@@ -1768,10 +1838,10 @@ async def ai_control(cb: CallbackQuery):
         board = "........."
         state["board"] = board
         state["status"] = "playing"
-        await safe_edit_text(
-            cb.message,
-            f"🤖 AI ({level}) — {t(lang,'your_move')}",
-            reply_markup=board_kb(match_id, board, lang, highlight=set(), skin=get_skin(cb.from_user.id)),
+        await render_xo_msg(
+            cb.message.chat.id, cb.message.message_id, board, cb.bot, lang, cb.from_user.id,
+            caption=f"🤖 AI ({level}) — {t(lang,'your_move')}",
+            kb=board_kb(match_id, board, lang, highlight=set(), skin=get_skin(cb.from_user.id)),
         )
         await cb.answer("Reset." if action == "reset" else "New game!")
         return
@@ -1779,10 +1849,10 @@ async def ai_control(cb: CallbackQuery):
     if action == "resign":
         state["status"] = "ended"
         board = str(state.get("board") or ".........")
-        await safe_edit_text(
-            cb.message,
-            "Game ended by resignation.",
-            reply_markup=board_kb(match_id, board, lang, highlight=set(), skin=get_skin(cb.from_user.id)),
+        await render_xo_msg(
+            cb.message.chat.id, cb.message.message_id, board, cb.bot, lang, cb.from_user.id,
+            caption="Game ended by resignation.",
+            kb=board_kb(match_id, board, lang, highlight=set(), skin=get_skin(cb.from_user.id)),
         )
         await cb.answer("Resigned.")
         return
@@ -1890,10 +1960,10 @@ async def random_fallback_to_ai(cb: CallbackQuery, uid: int, chat_id: int, msg_i
     match_id = str(uuid.uuid4())[:8]
     board = "........."
     AI_MATCHES[match_id] = {"level": "normal", "board": board, "user_id": uid, "status": "playing"}
-    await cb.bot.edit_message_text(
-        chat_id=chat_id, message_id=msg_id,
-        text=f"🤖 AI (normal) — {t(lang,'your_move')}",
-        reply_markup=board_kb(match_id, board, lang, highlight=set(), skin=get_skin(uid))
+    await render_xo_msg(
+        chat_id, msg_id, board, cb.bot, lang, uid,
+        caption=f"🤖 AI (normal) — {t(lang,'your_move')}",
+        kb=board_kb(match_id, board, lang, highlight=set(), skin=get_skin(uid))
     )
 
 # PvP start / move handlers could be kept as you already had;
@@ -1931,14 +2001,14 @@ async def start_pvp_match(cb: CallbackQuery, x_user: dict, o_user: dict):
             return
 
     turn_txt = "❌ (X)"
-    await _edit(
-        chat_id=x_user["chat_id"], msg_id=x_user["message_id"],
-        text=f"✅ Found! {turn_txt}",
+    await render_xo_msg(
+        x_user["chat_id"], x_user["message_id"], board, cb.bot, x_user.get("lang") or "en", x_user["user_id"],
+        caption=f"✅ Found! {turn_txt}",
         kb=board_kb_pvp(match_id, board, x_user.get("lang") or "en", highlight=set(), skin=get_skin(x_user["user_id"]))
     )
-    await _edit(
-        chat_id=o_user["chat_id"], msg_id=o_user["message_id"],
-        text=f"✅ Found! {turn_txt}",
+    await render_xo_msg(
+        o_user["chat_id"], o_user["message_id"], board, cb.bot, o_user.get("lang") or "en", o_user["user_id"],
+        caption=f"✅ Found! {turn_txt}",
         kb=board_kb_pvp(match_id, board, o_user.get("lang") or "en", highlight=set(), skin=get_skin(o_user["user_id"]))
     )
 
@@ -1994,17 +2064,16 @@ async def pvp_move(cb: CallbackQuery):
     # current turn text
     turn_txt = "❌ (X)" if m["turn"] == "X" else "⭕ (O)"
 
-    # update ongoing game
     if not w:
-        await _edit(
-            m.get("x_chat"), m.get("x_msg"),
-            f"🎮 PvP | {turn_txt}",
-            board_kb_pvp(match_id, new_board, m.get("x_lang","en"), highlight=set(), skin=get_skin(m["x"]), show_controls=not bool(m.get("tmatch_id")))
+        await render_xo_msg(
+            m.get("x_chat"), m.get("x_msg"), new_board, cb.bot, m.get("x_lang","en"), m["x"],
+            caption=f"🎮 PvP | {turn_txt}",
+            kb=board_kb_pvp(match_id, new_board, m.get("x_lang","en"), highlight=set(), skin=get_skin(m["x"]), show_controls=not bool(m.get("tmatch_id")))
         )
-        await _edit(
-            m.get("o_chat"), m.get("o_msg"),
-            f"🎮 PvP | {turn_txt}",
-            board_kb_pvp(match_id, new_board, m.get("o_lang","en"), highlight=set(), skin=get_skin(m["o"]), show_controls=not bool(m.get("tmatch_id")))
+        await render_xo_msg(
+            m.get("o_chat"), m.get("o_msg"), new_board, cb.bot, m.get("o_lang","en"), m["o"],
+            caption=f"🎮 PvP | {turn_txt}",
+            kb=board_kb_pvp(match_id, new_board, m.get("o_lang","en"), highlight=set(), skin=get_skin(m["o"]), show_controls=not bool(m.get("tmatch_id")))
         )
         await cb.answer()
         return
@@ -2108,15 +2177,15 @@ async def pvp_move(cb: CallbackQuery):
         text_x = f"{t(m.get('x_lang','en'), 'you_win' if x_win else 'you_lose')}{rating_note_x}\n\n{WIN_EMOJI if x_win else LOSE_EMOJI}"
         text_o = f"{t(m.get('o_lang','en'), 'you_win' if o_win else 'you_lose')}{rating_note_o}\n\n{WIN_EMOJI if o_win else LOSE_EMOJI}"
 
-    await _edit(
-        m.get("x_chat"), m.get("x_msg"),
-        text_x,
-        board_kb_pvp(match_id, new_board, m.get("x_lang","en"), highlight=hl, skin=get_skin(x_id), show_controls=not bool(m.get("tmatch_id")))
+    await render_xo_msg(
+        m.get("x_chat"), m.get("x_msg"), new_board, cb.bot, m.get("x_lang","en"), x_id,
+        highlight=hl, caption=text_x,
+        kb=board_kb_pvp(match_id, new_board, m.get("x_lang","en"), highlight=hl, skin=get_skin(x_id), show_controls=not bool(m.get("tmatch_id")))
     )
-    await _edit(
-        m.get("o_chat"), m.get("o_msg"),
-        text_o,
-        board_kb_pvp(match_id, new_board, m.get("o_lang","en"), highlight=hl, skin=get_skin(o_id), show_controls=not bool(m.get("tmatch_id")))
+    await render_xo_msg(
+        m.get("o_chat"), m.get("o_msg"), new_board, cb.bot, m.get("o_lang","en"), o_id,
+        highlight=hl, caption=text_o,
+        kb=board_kb_pvp(match_id, new_board, m.get("o_lang","en"), highlight=hl, skin=get_skin(o_id), show_controls=not bool(m.get("tmatch_id")))
     )
     await cb.answer()
 

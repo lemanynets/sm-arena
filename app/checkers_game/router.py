@@ -3,8 +3,10 @@ from __future__ import annotations
 import asyncio
 from aiogram import Router, F, Bot
 from aiogram.filters import Command
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, BufferedInputFile, InputMediaPhoto
 from aiogram.exceptions import TelegramBadRequest
+import io
+from app.board_renderer import renderer
 
 from .engine import (
     RED, BLUE,
@@ -58,6 +60,43 @@ def _join_kb(gid: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(text="Приєднатись (грати за 🔵)", callback_data=f"ckj|{gid}")]]
     )
+
+async def render_board_msg(chat_id: int, message_id: int, gs, bot: Bot, lang: str, user_id: int):
+    from app.db import get_skin_ck, get_active_wallpaper
+    skin = get_skin_ck(user_id)
+    wp = get_active_wallpaper(user_id)
+    kb = build_board_kb(gs.gid, gs.board, gs.turn, gs.selected, gs.forced_from, skin=skin)
+    text = render_text(gs.red_name, gs.blue_name, gs.turn, gs.selected, gs.forced_from is not None, gs.winner)
+    
+    if skin == "premium":
+        # Render image
+        img = renderer.render_checkers(gs.board, gs.selected, [], wallpaper=wp)
+        bio = io.BytesIO()
+        img.save(bio, format="PNG")
+        bio.seek(0)
+        photo = BufferedInputFile(bio.read(), filename="board.png")
+        
+        try:
+            # Try to edit media first
+            await bot.edit_message_media(
+                chat_id=chat_id,
+                message_id=message_id,
+                media=InputMediaPhoto(media=photo, caption=text, parse_mode="HTML"),
+                reply_markup=kb
+            )
+        except Exception:
+            # Fallback: send new photo
+            msg = await bot.send_photo(chat_id, photo, caption=text, reply_markup=kb, parse_mode="HTML")
+            return msg.message_id
+    else:
+        # Standard text rendering
+        try:
+            await bot.edit_message_text(text, chat_id=chat_id, message_id=message_id, reply_markup=kb, parse_mode="HTML")
+        except Exception:
+            # Fallback: send new message
+            msg = await bot.send_message(chat_id, text, reply_markup=kb, parse_mode="HTML")
+            return msg.message_id
+    return message_id
 
 # ---------------- Entry points ----------------
 @router.message(Command("checkers"))
@@ -148,20 +187,10 @@ async def ck_ai_start(cb: CallbackQuery):
         if getattr(active, "finished", False):
             end_private_game(active)
         elif getattr(active, "vs_ai", False) and int(getattr(active, "red_id", 0)) == int(cb.from_user.id):
-            text = render_text(
-                active.red_name,
-                active.blue_name,
-                active.turn,
-                active.selected,
-                active.forced_from is not None,
-                active.winner,
+            active.red_message_id = await render_board_msg(
+                cb.message.chat.id, cb.message.message_id, active, cb.bot, lang, cb.from_user.id
             )
-            skin = get_skin_ck(cb.from_user.id)
-            kb = build_board_kb(active.gid, active.board, active.turn, active.selected, active.forced_from, skin=skin)
-            m = await cb.message.answer(text, reply_markup=kb)
-            active.red_chat_id = m.chat.id
-            active.red_message_id = m.message_id
-            await cb.message.edit_text(
+            await cb.message.answer(
                 f"{t(lang,'brand_title')}\n{t(lang,'ck_choose')}",
                 reply_markup=_checkers_menu(lang),
             )
@@ -185,13 +214,10 @@ async def ck_ai_start(cb: CallbackQuery):
         ai_level=level,
     )
     # send message in private chat
-    text = render_text(gs.red_name, gs.blue_name, gs.turn, gs.selected, False, None)
-    skin = get_skin_ck(cb.from_user.id)
-    kb = build_board_kb(gs.gid, gs.board, gs.turn, gs.selected, gs.forced_from, skin=skin)
-    await cb.message.edit_text(text, reply_markup=kb)
-
     gs.red_chat_id = cb.message.chat.id
-    gs.red_message_id = cb.message.message_id
+    gs.red_message_id = await render_board_msg(
+        gs.red_chat_id, cb.message.message_id, gs, cb.bot, lang, cb.from_user.id
+    )
     STORE.games[gid] = gs
     STORE.active_by_user[gs.red_id] = gid
 
@@ -250,20 +276,12 @@ async def ck_pvp_search(cb: CallbackQuery):
     # ensure both users exist in DB
     upsert_user(gs.red_id, None, gs.red_name, lang)
     upsert_user(gs.blue_id, None, gs.blue_name, lang)
-    # send game board to both users (each sees their own skin)
-    text = render_text(gs.red_name, gs.blue_name, gs.turn, None, False, None)
-    skin_red = get_skin_ck(gs.red_id)
-    skin_blue = get_skin_ck(gs.blue_id)
-    kb_red = build_board_kb(gs.gid, gs.board, gs.turn, None, None, skin=skin_red)
-    kb_blue = build_board_kb(gs.gid, gs.board, gs.turn, None, None, skin=skin_blue)
-
-    # IMPORTANT: in private, chat_id == user_id
-    bot = cb.bot
-    m_red = await bot.send_message(gs.red_id, text, reply_markup=kb_red)
-    m_blue = await bot.send_message(gs.blue_id, text, reply_markup=kb_blue)
-
-    gs.red_chat_id, gs.red_message_id = m_red.chat.id, m_red.message_id
-    gs.blue_chat_id, gs.blue_message_id = m_blue.chat.id, m_blue.message_id
+    # send to both (each sees their own skin)
+    gs.red_chat_id = gs.red_id
+    gs.red_message_id = await render_board_msg(gs.red_id, 0, gs, cb.bot, "uk", gs.red_id)
+    
+    gs.blue_chat_id = gs.blue_id
+    gs.blue_message_id = await render_board_msg(gs.blue_id, 0, gs, cb.bot, "uk", gs.blue_id)
 
     await cb.message.edit_text("✅ Знайшов суперника! Дивись гру в чаті з ботом.", reply_markup=_checkers_menu(lang))
     await _safe_answer(cb,)
@@ -355,38 +373,20 @@ async def join_cb(cb: CallbackQuery):
 
 # ---------------- Core gameplay (group + private + AI) ----------------
 async def _edit_game_messages(cb: CallbackQuery, gs):
-    text = render_text(gs.red_name, gs.blue_name, gs.turn, gs.selected, gs.forced_from is not None, gs.winner)
-    skin = get_skin_ck(cb.from_user.id)
-    kb = build_board_kb(gs.gid, gs.board, gs.turn, gs.selected, gs.forced_from, skin=skin)
-
+    bot = cb.bot
+    
     # group game uses cb.message
     if not gs.is_private:
-        try:
-            await cb.message.edit_text(text, reply_markup=kb)
-        except TelegramBadRequest as e:
-            if "message is not modified" not in str(e):
-                raise
+        # For group games, we use the skin of the person who just interacted
+        gs.red_message_id = await render_board_msg(gs.chat_id, cb.message.message_id, gs, bot, "uk", cb.from_user.id)
         return
 
-    bot = cb.bot
-
-    skin_red = get_skin_ck(gs.red_id) if gs.red_id else 'default'
-    skin_blue = get_skin_ck(gs.blue_id) if getattr(gs, 'blue_id', 0) else 'default'
-    kb_red = build_board_kb(gs.gid, gs.board, gs.turn, gs.selected, gs.forced_from, skin=skin_red)
-    kb_blue = build_board_kb(gs.gid, gs.board, gs.turn, gs.selected, gs.forced_from, skin=skin_blue)
-
-    # edit both players (best effort)
-    for chat_id, message_id in [(gs.red_chat_id, gs.red_message_id), (gs.blue_chat_id, gs.blue_message_id)]:
-        if not chat_id or not message_id:
-            continue
-        kb = kb_red if chat_id == gs.red_chat_id else kb_blue
-        try:
-            await bot.edit_message_text(text=text, chat_id=chat_id, message_id=message_id, reply_markup=kb)
-        except TelegramBadRequest as e:
-            if "message is not modified" in str(e):
-                continue
-        except Exception:
-            continue
+    # private game: update both players (each sees their own skin)
+    if gs.red_id and gs.red_chat_id and gs.red_message_id:
+        gs.red_message_id = await render_board_msg(gs.red_chat_id, gs.red_message_id, gs, bot, "uk", gs.red_id)
+        
+    if gs.blue_id and gs.blue_chat_id and gs.blue_message_id:
+        gs.blue_message_id = await render_board_msg(gs.blue_chat_id, gs.blue_message_id, gs, bot, "uk", gs.blue_id)
 
 
 async def _tournament_hook(bot: Bot, gs):

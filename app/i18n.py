@@ -148,12 +148,23 @@ TEXTS = {
             "— PvP та гра з AI\n"
             "— Рейтинг Elo та Weekly TOP\n"
             "— Антинакрутка та VIP-пріоритет\n\n"
-            "👑 Власники бота:\n"
-            "Матвій Леманинець\n"
-            "Вячеслав Леманинець"
+            "👑 Власникам: родина Леманинець"
         ),
 
         "id_text": "Твій Telegram ID: {id}",
+        "stars_title": "⭐️ Зірки та Коїни",
+        "stars_balance": "💰 Баланс: <b>{coins}</b> 🪙\n(еквівалент: {stars} ⭐)",
+        "deposit_stars": "📥 Поповнити (Stars -> Coins)",
+        "withdraw_stars": "📤 Вивести (Coins -> Stars)",
+        "withdrawal_request_sent": "✅ Запит на виведення {coins} 🪙 ({stars} ⭐) надіслано! Адмін перевірить його найближчим часом.",
+        "withdrawal_error_balance": "❌ Недостатньо коїнів для виведення!",
+        "deposit_select_amount": "💎 Оберіть кількість Stars для депозиту:",
+        "deposit_rate_info": "Курс: 1 ⭐ = 100 🪙",
+        "daily_bonus_title": "🎁 Щоденний бонус",
+        "daily_bonus_claimed": "✅ Ти отримав щоденний бонус: +50 🪙! Повертайся завтра за новою порцією.",
+        "daily_bonus_already_claimed": "⏳ Ти вже отримав сьогоднішній бонус. Повертайся завтра!",
+        "daily_bonus_ready": "🎁 <b>Твій щоденний бонус готовий!</b>\nНатисни кнопку нижче, щоб отримати +50 🪙",
+        "btn_claim_bonus": "🎁 Забрати бонус",
     },
 
     "en": {
@@ -304,6 +315,19 @@ TEXTS = {
         ),
 
         "id_text": "Your Telegram ID: {id}",
+        "stars_title": "⭐️ Stars & Coins",
+        "stars_balance": "💰 Balance: <b>{coins}</b> 🪙\n(equivalent: {stars} ⭐)",
+        "deposit_stars": "📥 Deposit (Stars -> Coins)",
+        "withdraw_stars": "📤 Withdraw (Coins -> Stars)",
+        "withdrawal_request_sent": "✅ Withdrawal request for {coins} 🪙 ({stars} ⭐) sent! Admin will check it soon.",
+        "withdrawal_error_balance": "❌ Not enough coins for withdrawal!",
+        "deposit_select_amount": "💎 Select Stars amount for deposit:",
+        "deposit_rate_info": "Rate: 1 ⭐ = 100 🪙",
+        "daily_bonus_title": "🎁 Daily Bonus",
+        "daily_bonus_claimed": "✅ You've received your daily bonus: +50 🪙! Come back tomorrow for more.",
+        "daily_bonus_already_claimed": "⏳ You've already claimed today's bonus. Come back tomorrow!",
+        "daily_bonus_ready": "🎁 <b>Your daily bonus is ready!</b>\nClick the button below to get +50 🪙",
+        "btn_claim_bonus": "🎁 Claim Bonus",
     },
 
     "cs": {

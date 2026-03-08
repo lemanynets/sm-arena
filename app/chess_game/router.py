@@ -4,10 +4,11 @@ import asyncio
 from typing import Optional
 
 import chess
-from aiogram import F, Router
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message, BufferedInputFile, InputMediaPhoto
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+import io
+from app.board_renderer import renderer
 
 from .ai import choose_move
 from .storage import (
@@ -66,6 +67,54 @@ def _join_kb(gid: str) -> InlineKeyboardMarkup:
         inline_keyboard=[[InlineKeyboardButton(text="Join as black", callback_data=f"chj|{gid}")]]
     )
 
+async def render_board_msg(chat_id: int, message_id: int, gs, bot, lang: str, user_id: int):
+    skin = get_skin_chess(user_id)
+    kb = build_board_kb(gs.gid, gs.board, gs.selected, skin=skin)
+    text = render_text(gs.white_name, gs.black_name, gs.board, gs.selected, gs.winner, gs.outcome_reason or "")
+    
+    is_premium = "premium" in skin.lower()
+    
+    if is_premium:
+        # chess.Board -> renderer dict
+        b_dict = {}
+        for sq in chess.SQUARES:
+            piece = gs.board.piece_at(sq)
+            if piece:
+                r = 7 - chess.square_rank(sq)
+                c = chess.square_file(sq)
+                color = "white" if piece.color == chess.WHITE else "violet"
+                b_dict[(r, c)] = (piece.symbol().upper(), color)
+        
+        sel_renderer = None
+        if gs.selected is not None:
+            sel_renderer = (7 - chess.square_rank(gs.selected), chess.square_file(gs.selected))
+            
+        from app.db import get_active_wallpaper
+        wp = get_active_wallpaper(user_id)
+        img = renderer.render_chess(b_dict, selected=sel_renderer, wallpaper=wp)
+        bio = io.BytesIO()
+        img.save(bio, format="PNG")
+        bio.seek(0)
+        photo = BufferedInputFile(bio.read(), filename="board.png")
+        
+        try:
+            await bot.edit_message_media(
+                chat_id=chat_id,
+                message_id=message_id,
+                media=InputMediaPhoto(media=photo, caption=text, parse_mode="HTML"),
+                reply_markup=kb
+            )
+        except Exception:
+            msg = await bot.send_photo(chat_id, photo, caption=text, reply_markup=kb, parse_mode="HTML")
+            return msg.message_id
+    else:
+        try:
+            await bot.edit_message_text(text, chat_id=chat_id, message_id=message_id, reply_markup=kb, parse_mode="HTML")
+        except Exception:
+            msg = await bot.send_message(chat_id, text, reply_markup=kb, parse_mode="HTML")
+            return msg.message_id
+    return message_id
+
 
 def _chess_menu(lang: str) -> InlineKeyboardMarkup:
     chat = get_chat()
@@ -122,34 +171,24 @@ def _update_game_over(gs: GameSession) -> bool:
 
 
 async def _edit_game_messages(cb: CallbackQuery, gs: GameSession):
-    text = render_text(gs.white_name, gs.black_name, gs.board, gs.selected, gs.winner, gs.outcome_reason)
+    bot = cb.bot
+    lang = _lang_or_default(cb)
 
     if not gs.is_private:
-        skin = get_skin_chess(cb.from_user.id)
-        kb = build_board_kb(gs.gid, gs.board, gs.selected, skin=skin)
-        await _safe_edit(cb.message, text, reply_markup=kb)
+        gs.white_message_id = await render_board_msg(
+            gs.chat_id, cb.message.message_id, gs, bot, lang, cb.from_user.id
+        )
         return
 
-    bot = cb.bot
-    skin_white = get_skin_chess(gs.white_id) if gs.white_id else "classic:classic"
-    skin_black = get_skin_chess(gs.black_id) if gs.black_id else "classic:classic"
-    kb_white = build_board_kb(gs.gid, gs.board, gs.selected, skin=skin_white)
-    kb_black = build_board_kb(gs.gid, gs.board, gs.selected, skin=skin_black)
-
-    for chat_id, message_id in (
-        (gs.white_chat_id, gs.white_message_id),
-        (gs.black_chat_id, gs.black_message_id),
-    ):
-        if not chat_id or not message_id:
-            continue
-        kb = kb_white if chat_id == gs.white_chat_id else kb_black
-        try:
-            await bot.edit_message_text(text=text, chat_id=chat_id, message_id=message_id, reply_markup=kb)
-        except TelegramBadRequest as e:
-            if "message is not modified" in str(e):
-                continue
-        except Exception:
-            continue
+    # Private game: update both players
+    if gs.white_id and gs.white_chat_id and gs.white_message_id:
+        gs.white_message_id = await render_board_msg(
+            gs.white_chat_id, gs.white_message_id, gs, bot, lang, gs.white_id
+        )
+    if gs.black_id and gs.black_chat_id and gs.black_message_id:
+        gs.black_message_id = await render_board_msg(
+            gs.black_chat_id, gs.black_message_id, gs, bot, lang, gs.black_id
+        )
 
 
 @router.message(Command("chess"))
@@ -193,20 +232,10 @@ async def ch_ai_start(cb: CallbackQuery):
         if getattr(active, "finished", False):
             end_private_game(active)
         elif getattr(active, "vs_ai", False) and int(getattr(active, "white_id", 0)) == int(cb.from_user.id):
-            text = render_text(
-                active.white_name,
-                active.black_name,
-                active.board,
-                active.selected,
-                active.winner,
-                active.outcome_reason,
+            active.white_message_id = await render_board_msg(
+                cb.message.chat.id, cb.message.message_id, active, cb.bot, lang, cb.from_user.id
             )
-            skin = get_skin_chess(cb.from_user.id)
-            kb = build_board_kb(active.gid, active.board, active.selected, skin=skin)
-            m = await cb.message.answer(text, reply_markup=kb)
-            active.white_chat_id = m.chat.id
-            active.white_message_id = m.message_id
-            await cb.message.edit_text(
+            await cb.message.answer(
                 f"{t(lang,'brand_title')}\n{t(lang,'ch_choose')}",
                 reply_markup=_chess_menu(lang),
             )
@@ -227,13 +256,10 @@ async def ch_ai_start(cb: CallbackQuery):
         vs_ai=True,
         ai_level=level,
     )
-    text = render_text(gs.white_name, gs.black_name, gs.board, gs.selected, gs.winner, gs.outcome_reason)
-    skin = get_skin_chess(cb.from_user.id)
-    kb = build_board_kb(gs.gid, gs.board, gs.selected, skin=skin)
-    await cb.message.edit_text(text, reply_markup=kb)
-
     gs.white_chat_id = cb.message.chat.id
-    gs.white_message_id = cb.message.message_id
+    gs.white_message_id = await render_board_msg(
+        gs.white_chat_id, cb.message.message_id, gs, cb.bot, lang, cb.from_user.id
+    )
     STORE.games[gid] = gs
     STORE.active_by_user[gs.white_id] = gid
 
@@ -292,18 +318,12 @@ async def ch_pvp_search(cb: CallbackQuery):
     upsert_user(gs.white_id, None, gs.white_name, lang)
     upsert_user(gs.black_id, None, gs.black_name, lang)
 
-    text = render_text(gs.white_name, gs.black_name, gs.board, gs.selected, gs.winner, gs.outcome_reason)
-    skin_white = get_skin_chess(gs.white_id)
-    skin_black = get_skin_chess(gs.black_id)
-    kb_white = build_board_kb(gs.gid, gs.board, gs.selected, skin=skin_white)
-    kb_black = build_board_kb(gs.gid, gs.board, gs.selected, skin=skin_black)
-
-    bot = cb.bot
-    m_white = await bot.send_message(gs.white_id, text, reply_markup=kb_white)
-    m_black = await bot.send_message(gs.black_id, text, reply_markup=kb_black)
-
-    gs.white_chat_id, gs.white_message_id = m_white.chat.id, m_white.message_id
-    gs.black_chat_id, gs.black_message_id = m_black.chat.id, m_black.message_id
+    # send board to both (each sees their own skin)
+    gs.white_chat_id = gs.white_id
+    gs.white_message_id = await render_board_msg(gs.white_id, 0, gs, cb.bot, "uk", gs.white_id)
+    
+    gs.black_chat_id = gs.black_id
+    gs.black_message_id = await render_board_msg(gs.black_id, 0, gs, cb.bot, "uk", gs.black_id)
 
     await cb.message.edit_text("Opponent found. Game sent to your private chat.", reply_markup=_chess_menu(lang))
     await _safe_answer(cb)

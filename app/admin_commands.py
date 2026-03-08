@@ -23,6 +23,9 @@ from app.db import (
     list_all_user_ids,
     add_coins,
     get_coins,
+    get_pending_withdrawals,
+    process_withdrawal,
+    get_withdrawal,
 )
 
 router = Router()
@@ -373,3 +376,87 @@ async def cmd_stats(m: Message):
         f"<b>🏆 Топ-5 за рейтингом:</b>\n{top5_r_txt}"
     )
     await m.answer(text, parse_mode="HTML")
+
+@router.message(Command("withdrawals"))
+async def cmd_withdrawals(m: Message):
+    if not m.from_user or not is_admin(m.from_user.id):
+        return
+
+    init_db()
+    reqs = get_pending_withdrawals()
+    if not reqs:
+        await m.answer("📭 Немає активних запитів на виведення.")
+        return
+
+    text = "📥 <b>Активні запити на виведення:</b>\n\n"
+    for r in reqs:
+        text += f"🔹 ID: <code>{r['id']}</code> | User: <code>{r['user_id']}</code>\n"
+        text += f"   💰 {r['coins']} 🪙 -> ⭐️ {r['stars']}\n"
+        text += f"   📅 {datetime.fromtimestamp(r['created_ts']).strftime('%Y-%m-%d %H:%M')}\n\n"
+    
+    text += "Щоб обробити:\n<code>/approve_withdraw [id]</code>\n<code>/reject_withdraw [id] [причина]</code>"
+    await m.answer(text, parse_mode="HTML")
+
+
+@router.message(Command("approve_withdraw"))
+async def cmd_approve_withdraw(m: Message):
+    if not m.from_user or not is_admin(m.from_user.id):
+        return
+
+    parts = (m.text or "").split()
+    if len(parts) < 2:
+        await m.answer("Usage: /approve_withdraw [id]")
+        return
+
+    try:
+        wid = int(parts[1])
+    except Exception:
+        await m.answer("Invalid ID")
+        return
+
+    init_db()
+    w = get_withdrawal(wid)
+    if not w:
+        await m.answer("Запит не знайдено.")
+        return
+
+    process_withdrawal(wid, "APPROVED")
+    await m.answer(f"✅ Запит #{wid} позначено як ВИКОНАНИЙ. Не забудьте вручну відправити зірки користувачу {w['user_id']}!")
+    
+    try:
+        await m.bot.send_message(w['user_id'], f"✅ Ваше виведення {w['coins']} 🪙 ({w['stars']} ⭐️) схвалено та виконано!")
+    except Exception: pass
+
+
+@router.message(Command("reject_withdraw"))
+async def cmd_reject_withdraw(m: Message):
+    if not m.from_user or not is_admin(m.from_user.id):
+        return
+
+    parts = (m.text or "").split(maxsplit=2)
+    if len(parts) < 2:
+        await m.answer("Usage: /reject_withdraw [id] [reason]")
+        return
+
+    try:
+        wid = int(parts[1])
+        reason = parts[2] if len(parts) > 2 else "Не вказано"
+    except Exception:
+        await m.answer("Invalid ID")
+        return
+
+    init_db()
+    w = get_withdrawal(wid)
+    if not w:
+        await m.answer("Запит не знайдено.")
+        return
+
+    # Refund coins
+    add_coins(w['user_id'], w['coins'])
+    process_withdrawal(wid, "REJECTED", admin_note=reason)
+    
+    await m.answer(f"❌ Запит #{wid} ВІДХИЛЕНО. Кошти повернуто користувачу.")
+    
+    try:
+        await m.bot.send_message(w['user_id'], f"❌ Ваше виведення {w['coins']} 🪙 ({w['stars']} ⭐️) відхилено.\nПричина: {reason}\nКошти повернуто на баланс.")
+    except Exception: pass

@@ -2,274 +2,688 @@
 <html lang="uk">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SM Arena — Магазин</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SM Arena — Premium Shop</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --accent: #6c63ff;
-      --bg: #0f0f1a;
-      --card: #1a1a2e;
-      --text: #e0e0ef;
-      --muted: #888;
-      --gold: #f7c94b;
+      --accent-primary: #8B5CF6;
+      --accent-secondary: #7C3AED;
+      --bg-dark: #09090B;
+      --bg-card: rgba(24, 24, 27, 0.6);
+      --text-primary: #F8FAFC;
+      --text-secondary: #94A3B8;
+      --gold: #FACC15;
+      --glass-border: rgba(255, 255, 255, 0.1);
+      --safe-area-inset-bottom: env(safe-area-inset-bottom);
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
     body {
-      font-family: 'Segoe UI', sans-serif;
-      background: var(--bg);
-      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 0% 0%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 100% 100%, rgba(124, 58, 237, 0.1) 0%, transparent 50%);
+      color: var(--text-primary);
       min-height: 100vh;
-      padding: 12px;
+      overflow-x: hidden;
+      line-height: 1.5;
     }
+
+    /* Layout */
+    .app-container {
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 16px 16px calc(80px + var(--safe-area-inset-bottom));
+    }
+
     header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0 24px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(9, 9, 11, 0.8);
+      backdrop-filter: blur(8px);
+    }
+
+    .brand {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 10px 0 16px;
-      border-bottom: 1px solid #222;
     }
-    header h1 { font-size: 1.2rem; flex: 1; }
-    #coins {
-      background: linear-gradient(135deg, #f7c94b, #e48a00);
-      color: #000;
-      border-radius: 20px;
-      padding: 4px 14px;
+
+    .brand-icon {
+      font-size: 24px;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+    }
+
+    .coin-badge {
+      background: rgba(250, 204, 21, 0.1);
+      border: 1px solid rgba(250, 204, 21, 0.2);
+      color: var(--gold);
+      padding: 6px 14px;
+      border-radius: 9999px;
       font-weight: 700;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      backdrop-filter: blur(4px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     }
+
+    /* Tabs */
     .tabs {
       display: flex;
-      gap: 8px;
-      margin: 14px 0 10px;
+      background: rgba(24, 24, 27, 0.8);
+      padding: 4px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      border: 1px solid var(--glass-border);
     }
+
     .tab {
       flex: 1;
       text-align: center;
-      padding: 8px;
-      border-radius: 10px;
+      padding: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border-radius: 8px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       cursor: pointer;
-      background: var(--card);
-      color: var(--muted);
-      font-size: 0.85rem;
-      transition: all 0.2s;
     }
-    .tab.active { background: var(--accent); color: #fff; }
+
+    .tab.active {
+      background: var(--accent-primary);
+      color: white;
+      box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+    }
+
+    /* Shop Grid */
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      grid-template-columns: repeat(2, 1fr);
       gap: 12px;
-      padding-bottom: 20px;
     }
+
     .card {
-      background: var(--card);
-      border-radius: 14px;
-      padding: 14px 12px;
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      position: relative;
+      gap: 8px;
+      transition: all 0.2s ease;
+      animation: fadeIn 0.4s ease-out backwards;
+    }
+
+    .card:active {
+      transform: scale(0.97);
+    }
+
+    .card-img-container {
+      aspect-ratio: 1;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      margin-bottom: 4px;
+    }
+
+    .card-title {
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: var(--text-primary);
+    }
+
+    .card-desc {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
       overflow: hidden;
-      transition: transform 0.15s, box-shadow 0.15s;
+      min-height: 2.25rem;
     }
-    .card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(108,99,255,.4); }
-    .card.owned::after {
-      content: '✓';
-      position: absolute;
-      top: 8px; right: 10px;
-      color: #4ade80;
-      font-weight: 700;
-    }
-    .card-icon { font-size: 2rem; }
-    .card-title { font-weight: 600; font-size: 0.85rem; }
-    .card-desc { font-size: 0.72rem; color: var(--muted); line-height: 1.3; }
-    .card-price {
+
+    .card-footer {
       margin-top: auto;
-      display: inline-block;
-      background: rgba(247,201,75,.15);
-      color: var(--gold);
-      border-radius: 20px;
-      padding: 4px 10px;
-      font-size: 0.78rem;
-      font-weight: 700;
-      width: fit-content;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
-    .card button {
-      border: none;
-      border-radius: 8px;
-      padding: 7px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity 0.15s;
-      background: var(--accent);
-      color: #fff;
-    }
-    .card button:disabled { opacity: 0.4; cursor: default; }
-    .card button.owned-btn {
-      background: #2e2e4a;
-      color: #4ade80;
-    }
-    #status {
-      position: fixed;
-      top: 12px; left: 50%;
-      transform: translateX(-50%);
-      background: var(--accent);
-      color: #fff;
-      border-radius: 20px;
-      padding: 8px 20px;
+
+    .price-tag {
       font-size: 0.85rem;
-      display: none;
-      z-index: 999;
+      font-weight: 700;
+      color: var(--gold);
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
-    #status.show { display: block; }
-    #profile-panel {
-      background: var(--card);
-      border-radius: 14px;
+
+    .buy-btn {
+      width: 100%;
+      background: var(--accent-primary);
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .buy-btn:disabled {
+      background: rgba(139, 92, 246, 0.2);
+      color: var(--text-secondary);
+      cursor: not-allowed;
+    }
+
+    .buy-btn.owned-btn {
+      background: rgba(74, 222, 128, 0.1);
+      color: #4ADE80;
+      border: 1px solid rgba(74, 222, 128, 0.2);
+    }
+
+    .buy-btn.activate-btn {
+      background: rgba(59, 130, 246, 0.2);
+      color: #60A5FA;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+
+    .buy-btn.activate-btn:active {
+      background: rgba(59, 130, 246, 0.4);
+    }
+
+    /* Profile Section */
+    .profile-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    .profile-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .avatar-circle {
+      width: 64px;
+      height: 64px;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      color: white;
+      font-weight: 800;
+      box-shadow: 0 8px 16px rgba(139, 92, 246, 0.4);
+    }
+
+    .user-info h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    .user-info p {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+    }
+
+    /* Battle Pass Box */
+    .bp-container {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
       padding: 16px;
-      margin-bottom: 16px;
+      margin-top: 16px;
     }
-    #profile-panel h2 { font-size: 1rem; margin-bottom: 10px; }
-    .stat-row { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 6px; }
-    .stat-row span:last-child { color: var(--gold); font-weight: 600; }
-    .loader {
-      text-align: center;
+
+    .bp-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .bp-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #A78BFA;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .bp-level-badge {
+      background: #A78BFA;
+      color: #1E1B4B;
+      padding: 2px 10px;
+      border-radius: 6px;
+      font-weight: 800;
+      font-size: 0.8rem;
+    }
+
+    .progress-track {
+      height: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 5px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #8B5CF6, #D946EF);
+      width: 0%;
+      transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 0 12px rgba(139, 92, 246, 0.6);
+    }
+
+    .progress-text {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .stat-box {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .stat-value {
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    /* Feedback Overlay */
+    #toast {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(30,30,45, 0.9);
+      backdrop-filter: blur(12px);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      border: 1px solid var(--glass-border);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .loader-container {
+      grid-column: span 2;
       padding: 40px;
-      color: var(--muted);
+      text-align: center;
+      color: var(--text-secondary);
+    }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid rgba(139, 92, 246, 0.1);
+      border-radius: 50%;
+      border-top-color: var(--accent-primary);
+      animation: spin 1s linear infinite;
+      margin: 0 auto 12px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
   </style>
 </head>
 <body>
 
-<div id="status"></div>
+<div id="toast"></div>
 
-<header>
-  <span style="font-size:1.6rem">⚔️</span>
-  <h1>SM Arena</h1>
-  <span id="coins">... 🪙</span>
-</header>
+<div class="app-container">
+  <header>
+    <div class="brand">
+      <span class="brand-icon">⚔️</span>
+      <h1>SM Arena</h1>
+    </div>
+    <div class="coin-badge" id="coins-container">
+      <span id="coins-val">0</span>
+      <span>🪙</span>
+    </div>
+  </header>
 
-<div class="tabs">
-  <div class="tab active" onclick="switchTab('shop')">🛍 Магазин</div>
-  <div class="tab" onclick="switchTab('profile')">👤 Профіль</div>
-</div>
+  <nav class="tabs">
+    <div class="tab active" id="tab-shop" onclick="switchTab('shop')">🧁 Магазин</div>
+    <div class="tab" id="tab-profile" onclick="switchTab('profile')">👤 Профіль</div>
+  </nav>
 
-<div id="shop-content">
-  <div class="grid" id="items-grid"><div class="loader">Завантаження...</div></div>
-</div>
+  <!-- CONTENT: SHOP -->
+  <main id="shop-content">
+    <div class="grid" id="items-grid">
+      <div class="loader-container">
+        <div class="spinner"></div>
+        <p>Завантаження каталогу...</p>
+      </div>
+    </div>
+  </main>
 
-<div id="profile-content" style="display:none">
-  <div id="profile-panel"><div class="loader">Завантаження...</div></div>
+  <!-- CONTENT: PROFILE -->
+  <main id="profile-content" style="display:none">
+    <div id="profile-render">
+      <div class="loader-container">
+        <div class="spinner"></div>
+        <p>Синхронізація даних...</p>
+      </div>
+    </div>
+  </main>
 </div>
 
 <script>
 const tg = window.Telegram.WebApp;
+const isDark = tg.colorScheme === 'dark';
 tg.ready();
 tg.expand();
+tg.enableClosingConfirmation();
 
 const initData = tg.initData || '';
-const BASE = '';
+const API_BASE = '';
 
-function showStatus(msg, duration = 2500) {
-  const el = document.getElementById('status');
-  el.textContent = msg;
+function showToast(msg, isSuccess = true) {
+  const el = document.getElementById('toast');
+  el.innerHTML = (isSuccess ? '✅ ' : '❌ ') + msg;
   el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), duration);
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+function haptic(type = 'medium') {
+  try {
+    tg.HapticFeedback.impactOccurred(type);
+  } catch(e){}
 }
 
 function headers() {
   return { 'Content-Type': 'application/json', 'X-Init-Data': initData };
 }
 
-let coinsVal = 0;
-function updateCoinsUI(c) {
-  coinsVal = c;
-  document.getElementById('coins').textContent = `${c} 🪙`;
+let userCoins = 0;
+function updateCoins(val) {
+  userCoins = val;
+  document.getElementById('coins-val').innerText = val.toLocaleString();
 }
 
 // ---------------- SHOP ----------------
 async function loadShop() {
   const grid = document.getElementById('items-grid');
   try {
-    const r = await fetch(`${BASE}/api/shop`, { headers: headers() });
-    if (!r.ok) { grid.innerHTML = `<div class="loader">Помилка авторизації</div>`; return; }
-    const data = await r.json();
-    updateCoinsUI(data.coins);
-    if (!data.items.length) { grid.innerHTML = '<div class="loader">Магазин порожній 😢</div>'; return; }
+    const res = await fetch(`${API_BASE}/api/shop`, { headers: headers() });
+    if (!res.ok) throw new Error('Auth error');
+    const data = await res.json();
+    
+    updateCoins(data.coins);
+    
+    if (!data.items || data.items.length === 0) {
+      grid.innerHTML = '<div class="loader-container"><p>Магазин тимчасово порожній</p></div>';
+      return;
+    }
+
     grid.innerHTML = '';
-    data.items.forEach(it => {
+    data.items.forEach((it, idx) => {
       const card = document.createElement('div');
-      card.className = 'card' + (it.owned ? ' owned' : '');
-      const icon = it.kind === 'skin_board' ? '🪵' : it.kind === 'skin_cell' ? '🌊' : '🎨';
+      card.className = 'card';
+      card.style.animationDelay = `${idx * 0.05}s`;
+      
+      const iconMap = { 
+        'skin_board': '🪵', 
+        'skin_cell': '🌊', 
+        'skin_chess_board': '♟️', 
+        'skin_chess_pieces': '♞',
+        'wallpaper': '🖼️' 
+      };
+      const icon = iconMap[it.kind] || '🎨';
+      
+      let btnText = 'Придбати';
+      let btnClass = '';
+      let btnAction = `buyItem('${it.item_id}', this)`;
+      
+      if (it.owned) {
+        if (it.active) {
+          btnText = 'Активно';
+          btnClass = 'owned-btn';
+          btnAction = '';
+        } else {
+          btnText = 'Активувати';
+          btnClass = 'activate-btn';
+          btnAction = `activateItem('${it.item_id}', this)`;
+        }
+      }
+
       card.innerHTML = `
-        <div class="card-icon">${icon}</div>
+        <div class="card-img-container">${icon}</div>
         <div class="card-title">${it.title}</div>
         <div class="card-desc">${it.desc}</div>
-        <div class="card-price">💰 ${it.price} 🪙</div>
-        <button ${it.owned ? 'class="owned-btn" disabled' : ''} onclick="buyItem('${it.item_id}', this)">
-          ${it.owned ? '✅ Куплено' : '🛒 Купити'}
-        </button>`;
+        <div class="card-footer">
+          <div class="price-tag">${it.owned ? 'Придбано' : '💰 ' + it.price}</div>
+          <button class="buy-btn ${btnClass}" 
+                  ${it.active ? 'disabled' : ''} 
+                  onclick="${btnAction}">
+            ${btnText}
+          </button>
+        </div>
+      `;
       grid.appendChild(card);
     });
+  } catch (err) {
+    grid.innerHTML = `<div class="loader-container"><p>Помилка завантаження: ${err.message}</p></div>`;
+  }
+}
+
+async function activateItem(itemId, btn) {
+  haptic('medium');
+  btn.disabled = true;
+  btn.innerText = 'Зачекайте...';
+  try {
+    const res = await fetch(`${API_BASE}/api/settings/skin`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ item_id: itemId })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      haptic('success');
+      showToast('Активовано!');
+      loadShop(); // Refresh to update button states
+    } else {
+      showToast('Помилка активації', false);
+      btn.disabled = false;
+      btn.innerText = 'Активувати';
+    }
   } catch (e) {
-    grid.innerHTML = `<div class="loader">Помилка: ${e.message}</div>`;
+    showToast('Помилка мережі', false);
+    btn.disabled = false;
+    btn.innerText = 'Активувати';
   }
 }
 
 async function buyItem(itemId, btn) {
+  haptic('heavy');
   btn.disabled = true;
+  const originalText = btn.innerText;
+  btn.innerText = 'Обробка...';
+
   try {
-    const r = await fetch(`${BASE}/api/buy`, {
+    const res = await fetch(`${API_BASE}/api/buy`, {
       method: 'POST',
       headers: headers(),
-      body: JSON.stringify({ item_id: itemId }),
+      body: JSON.stringify({ item_id: itemId })
     });
-    const data = await r.json();
+    const data = await res.json();
+
     if (data.ok) {
-      showStatus('✅ Куплено!');
-      updateCoinsUI(data.coins);
-      btn.textContent = '✅ Куплено';
-      btn.className = 'owned-btn';
-      btn.closest('.card').classList.add('owned');
+      haptic('success');
+      showToast('Успішно придбано!');
+      updateCoins(data.coins);
+      loadShop(); // Refresh to show "Activate" or "Active"
     } else {
-      showStatus(data.error === 'not_enough_coins' ? '❌ Недостатньо монет' : '❌ Помилка');
+      haptic('error');
+      const errs = { 'not_enough_coins': 'Недостатньо монет', 'already_owned': 'Вже придбано' };
+      showToast(errs[data.error] || 'Помилка оплати', false);
       btn.disabled = false;
+      btn.innerText = originalText;
     }
   } catch (e) {
-    showStatus('❌ Мережева помилка');
+    haptic('error');
+    showToast('Помилка мережі', false);
     btn.disabled = false;
+    btn.innerText = originalText;
   }
 }
 
 // ---------------- PROFILE ----------------
 async function loadProfile() {
-  const panel = document.getElementById('profile-panel');
+  const container = document.getElementById('profile-render');
   try {
-    const r = await fetch(`${BASE}/api/profile`, { headers: headers() });
-    if (!r.ok) { panel.innerHTML = `<div class="loader">Помилка авторизації</div>`; return; }
-    const u = await r.json();
-    updateCoinsUI(u.coins);
-    panel.innerHTML = `
-      <h2>👤 ${u.first_name || 'Гравець'} ${u.username ? '@' + u.username : ''}</h2>
-      <div class="stat-row"><span>💰 Монети:</span><span>${u.coins} 🪙</span></div>
-      <div class="stat-row"><span>🎮 Рейтинг XO:</span><span>${u.rating_xo}</span></div>
-      <div class="stat-row"><span>♟️ Рейтинг Шашки:</span><span>${u.rating_ck}</span></div>
-      <div class="stat-row"><span>⚜️ BP Рівень:</span><span>${u.bp_level}</span></div>
-      <div class="stat-row"><span>💎 VIP:</span><span>${u.is_vip ? '✅ Активний' : '—'}</span></div>`;
-  } catch (e) {
-    panel.innerHTML = `<div class="loader">Помилка: ${e.message}</div>`;
+    const res = await fetch(`${API_BASE}/api/profile`, { headers: headers() });
+    if (!res.ok) throw new Error('Profile error');
+    const u = await res.json();
+    
+    updateCoins(u.coins);
+    
+    const xpPercent = Math.min(100, (u.bp_xp || 0));
+    const initial = (u.first_name || 'G').charAt(0).toUpperCase();
+
+    container.innerHTML = `
+      <section class="profile-card">
+        <div class="profile-header">
+          <div class="avatar-circle">${initial}</div>
+          <div class="user-info">
+            <h2>${u.first_name || 'Гравець'}</h2>
+            <p>${u.username ? '@' + u.username : 'ID: ' + u.user_id}</p>
+          </div>
+        </div>
+
+        <div class="bp-container">
+          <div class="bp-header">
+            <span class="bp-title">🔱 Battle Pass</span>
+            <span class="bp-level-badge">LVL ${u.bp_level}</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" style="width: ${xpPercent}%"></div>
+          </div>
+          <div class="progress-text">${u.bp_xp}/100 XP</div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-box">
+            <span class="stat-label">❌⭕ XO ELO</span>
+            <span class="stat-value">${u.rating_xo}</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">♟️ Шашки ELO</span>
+            <span class="stat-value">${u.rating_ck}</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">💎 VIP</span>
+            <span class="stat-value" style="color:${u.is_vip ? '#4ADE80' : '#888'}">${u.is_vip ? 'Активний' : 'Ні'}</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">💰 Баланс</span>
+            <span class="stat-value">${u.coins} 🪙</span>
+          </div>
+        </div>
+      </section>
+    `;
+  } catch (err) {
+    container.innerHTML = `<div class="loader-container"><p>Не вдалося завантажити профіль</p></div>`;
   }
 }
 
-// ---------------- TABS ----------------
-function switchTab(tab) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab')[tab === 'shop' ? 0 : 1].classList.add('active');
-  document.getElementById('shop-content').style.display = tab === 'shop' ? '' : 'none';
-  document.getElementById('profile-content').style.display = tab === 'profile' ? '' : 'none';
-  if (tab === 'profile') loadProfile();
+// ---------------- NAVIGATION ----------------
+function switchTab(tabId) {
+  haptic('light');
+  const isShop = (tabId === 'shop');
+  
+  document.getElementById('tab-shop').classList.toggle('active', isShop);
+  document.getElementById('tab-profile').classList.toggle('active', !isShop);
+  
+  document.getElementById('shop-content').style.display = isShop ? 'block' : 'none';
+  document.getElementById('profile-content').style.display = isShop ? 'none' : 'block';
+
+  if (!isShop) loadProfile();
+  else loadShop();
 }
 
+// Init
 loadShop();
 </script>
+
 </body>
 </html>

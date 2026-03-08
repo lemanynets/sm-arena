@@ -65,8 +65,7 @@ if _admin_env:
 # ================== LINKS ==================
 DEFAULT_NEWS_TITLE = "Новини"
 DEFAULT_NEWS_URL = "https://t.me/sm_arena"
-DEFAULT_CHAT_TITLE = "Чатик"
-DEFAULT_CHAT_URL = "https://t.me/SM_Arena_chat"
+DEFAULT_CHAT_URL = "https://t.me/sm_arena"
 
 DEFAULT_SKIN = "default"
 
@@ -76,6 +75,7 @@ SKINS = [
     ("3d", "3D"),
     ("neon", "Neon"),
     ("mono", "Mono"),
+    ("premium", "Premium Visuals ✨"),
 ]
 
 
@@ -83,6 +83,7 @@ SKIN_BOARDS = [
     ("default", "Classic"),
     ("wood", "Wood"),
     ("neon", "Neon Board"),
+    ("premium", "Premium Visuals ✨"),
 ]
 
 SKIN_CELLS = [
@@ -95,6 +96,7 @@ SKIN_BOARDS_CK = [
     ("default", "Classic"),
     ("wood", "Wood"),
     ("neon", "Neon Board"),
+    ("premium", "Premium Visuals ✨"),
 ]
 
 SKIN_CELLS_CK = [

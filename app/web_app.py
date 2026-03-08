@@ -76,6 +76,8 @@ async def api_profile(request: web.Request):
         "rating_xo": int(u.get("rating", 1000) or 1000),
         "rating_ck": int(u.get("rating_ck", 1000) or 1000),
         "bp_level": int(u.get("bp_level", 1) or 1),
+        "bp_xp": int(u.get("bp_xp", 0) or 0),
+        "wallpaper": u.get("wallpaper", "default"),
         "is_vip": is_vip(uid),
     }
     return web.json_response(data)

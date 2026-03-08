@@ -126,9 +126,72 @@ async def announce_leader_loop(bot: Bot):
             logger.error(f"Marketing: Error in announce_leader_loop: {e}")
             await asyncio.sleep(3600)
 
+async def daily_bonus_loop(bot: Bot):
+    """Reminds users about their available daily bonus."""
+    while True:
+        try:
+            logger.info("Marketing: Running daily bonus reminder check...")
+            now = time.time()
+            users = get_marketing_candidates()
+            from app.db import can_claim_daily_bonus
+            
+            for u in users:
+                uid = u['user_id']
+                lang = u.get('lang', 'uk')
+                last_promo = u.get('last_promo_msg_ts', 0)
+                
+                # If bonus available AND no promo in last 24h
+                if can_claim_daily_bonus(uid) and (now - last_promo > PROMO_COOLDOWN):
+                    try:
+                        msg = t(lang, "daily_bonus_ready")
+                        await bot.send_message(uid, msg, parse_mode="HTML")
+                        set_last_promo_msg_ts(uid, now)
+                        logger.info(f"Marketing: Daily bonus reminder sent to {uid}")
+                        await asyncio.sleep(0.05)
+                    except Exception:
+                        pass
+                        
+        except Exception as e:
+            logger.error(f"Marketing: Error in daily_bonus_loop: {e}")
+            
+        await asyncio.sleep(8 * 3600)  # Check every 8 hours
+
+
+async def weekly_reward_loop(bot: Bot):
+    """Rewards top 3 players every Monday morning."""
+    while True:
+        try:
+            now = datetime.datetime.now()
+            # Run only on Monday at 09:00 AM
+            if now.weekday() == 0 and now.hour == 9:
+                logger.info("Marketing: Processing weekly rewards...")
+                from app.db import get_top_weekly, add_coins, get_news
+                
+                for game in ["xo", "checkers"]:
+                    tops = get_top_weekly(game, limit=3)
+                    rewards = [100, 50, 25] # 1st, 2nd, 3rd place
+                    
+                    for i, user in enumerate(tops):
+                        uid = user['user_id']
+                        reward = rewards[i]
+                        add_coins(uid, reward)
+                        try:
+                            msg = f"🏆 <b>Вітаємо!</b>\n\nВи посіли {i+1} місце у тижневому рейтингу {game.upper()}! Ваша нагорода: <b>+{reward} 🪙</b>"
+                            await bot.send_message(uid, msg, parse_mode="HTML")
+                        except Exception: pass
+                
+                await asyncio.sleep(3600) # Wait a bit to not repeat immediately
+        except Exception as e:
+            logger.error(f"Marketing: Error in weekly_reward_loop: {e}")
+            
+        await asyncio.sleep(1800) # Check every 30 min
+
+
 async def start_marketing_engine(bot: Bot):
     """Starts all marketing background tasks."""
     logger.info("Marketing Engine: Starting...")
     asyncio.create_task(retention_loop(bot))
     asyncio.create_task(referral_booster_loop(bot))
     asyncio.create_task(announce_leader_loop(bot))
+    asyncio.create_task(daily_bonus_loop(bot))
+    asyncio.create_task(weekly_reward_loop(bot))

@@ -235,6 +235,35 @@ SHOP_ITEMS: list[dict] = [
         "kind": "skin_chess_pieces",
         "value": "filled",
     },
+
+    # ============ Wallpapers (Обої) ============
+    {
+        "item_id": "wallpaper:space",
+        "title": "🌌 Обої: Космос",
+        "desc": "Глибокий космос для фону вашої гри.",
+        "price": 150,
+        "game": "all",
+        "kind": "wallpaper",
+        "value": "space",
+    },
+    {
+        "item_id": "wallpaper:forest",
+        "title": "🌲 Обої: Ліс",
+        "desc": "Заспокійливий ранковий ліс.",
+        "price": 150,
+        "game": "all",
+        "kind": "wallpaper",
+        "value": "forest",
+    },
+    {
+        "item_id": "wallpaper:cyberpunk",
+        "title": "🌃 Обої: Кіберпанк",
+        "desc": "Неонові вогні нічного міста.",
+        "price": 150,
+        "game": "all",
+        "kind": "wallpaper",
+        "value": "cyberpunk",
+    },
 ]
 
 def items_for_game(game: str) -> list[dict]:

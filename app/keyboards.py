@@ -73,6 +73,7 @@ def arena_menu_kb(
     game: str,
     chat_url: str = "",
     news_url: str = "",
+    show_daily_bonus: bool = False,
 ) -> InlineKeyboardMarkup:
     g = (game or "xo").lower()
     if g == "checkers":
@@ -97,8 +98,14 @@ def arena_menu_kb(
 
         [
             InlineKeyboardButton(text=t(lang, "menu_quests"), callback_data="sm:menu:quests"),
-            InlineKeyboardButton(text=t(lang, "menu_balance"), callback_data="sm:menu:balance"),
+            InlineKeyboardButton(text=t(lang, "menu_balance"), callback_data="sm:menu:stars"),
         ],
+    ]
+
+    if show_daily_bonus:
+        rows.append([InlineKeyboardButton(text=t(lang, "btn_claim_bonus"), callback_data="sm:menu:daily_bonus")])
+
+    rows += [
         [
             InlineKeyboardButton(text=t(lang, "menu_market"), callback_data="sm:menu:market"),
             InlineKeyboardButton(text=t(lang, "menu_settings2"), callback_data="sm:menu:settings"),
@@ -139,11 +146,27 @@ def market_menu_kb(lang: str, tma_url: str = "") -> InlineKeyboardMarkup:
     rows += [
         [InlineKeyboardButton(text="🛍 Магазин", callback_data="sm:market:shop")],
         [InlineKeyboardButton(text="🎒 Інвентар", callback_data="sm:market:inv")],
-        [InlineKeyboardButton(text=t(lang, "menu_coins"), callback_data="sm:menu:coins")],
+        [InlineKeyboardButton(text=t(lang, "menu_balance"), callback_data="sm:menu:stars")],
         [InlineKeyboardButton(text=t(lang, "menu_vip"), callback_data="sm:menu:vip")],
-        [InlineKeyboardButton(text=t(lang, "menu_donate"), callback_data="sm:menu:donate")],
+        [InlineKeyboardButton(text=t(lang, "menu_donate"), callback_data="sm:menu:stars_deposit")],
         [InlineKeyboardButton(text=t(lang, "back"), callback_data="sm:menu:home")],
     ]
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def stars_menu_kb(lang: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=t(lang, "deposit_stars"), callback_data="sm:menu:stars_deposit")],
+        [InlineKeyboardButton(text=t(lang, "withdraw_stars"), callback_data="sm:menu:stars_withdraw")],
+        [InlineKeyboardButton(text=t(lang, "back"), callback_data="sm:menu:home")],
+    ])
+
+
+def stars_deposit_kb(lang: str, amounts: list[int]) -> InlineKeyboardMarkup:
+    rows = []
+    for a in amounts:
+        rows.append([InlineKeyboardButton(text=f"⭐ {a}", callback_data=f"sm:stars:deposit:{a}")])
+    rows.append([InlineKeyboardButton(text=t(lang, "back"), callback_data="sm:menu:stars")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
